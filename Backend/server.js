@@ -14,8 +14,6 @@ mongoose.connect(DB_URL)
     .then(() => console.log("Η σύνδεση με τη MongoDB Atlas πέτυχε!"))
     .catch((err) => console.error("Σφάλμα σύνδεσης με τη βάση:", err));
 
-// 🚦 Ο ΤΡΟΧΟΝΟΜΟΣ: Λέμε στον server ότι κάθε αίτημα που ξεκινάει με /api
-// πρέπει να πηγαίνει και να ψάχνει μέσα στο αρχείο authRoutes
 app.use('/api', authRoutes);
 
 app.listen(PORT, () => {
