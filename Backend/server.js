@@ -1,9 +1,12 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
+const PORT = 3000;
 
 const app = express();
-const PORT = 3000;
+app.use(cors());
+
 
 // Allows Node.js to read JSON data from Postman
 app.use(express.json());
