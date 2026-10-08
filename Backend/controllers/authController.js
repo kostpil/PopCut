@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const User = require('../Models/User'); // (..) -> Search for "Models/User" outside "controller"
 
@@ -50,10 +51,16 @@ exports.login = async (req, res) => {
             return res.status(401).json({ error: "Το email ή το password είναι λανθασμένα!" });
         }
 
+        const token = jwt.sign(
+            { id: user._id },
+            "MY_SUPER_SECRET_KEY_123456789",
+            { expiresIn: '1d' }                 // Expire in 1 day for safety reasons
+        );
+
         res.json({
             message: "Το Login πέτυχε! Καλώς ορίσατε.",
             userId: user._id,
-            token: "fake-jwt-token-will-be-real-tomorrow"
+            token: token
         });
     } catch (error) {
         console.error("Σφάλμα κατά το login:", error);
