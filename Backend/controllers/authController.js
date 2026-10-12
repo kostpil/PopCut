@@ -67,3 +67,12 @@ exports.login = async (req, res) => {
         res.status(500).json({ error: "Υπήρξε κάποιο πρόβλημα στον server." });
     }
 };
+
+exports.getProfile = async (req, res) => {
+    try {
+        res.json(req.user);
+    } catch (error) {
+        console.error("Σφάλμα κατά την ανάκτηση του προφίλ:", error);
+        res.status(500).json({ error: "Υπήρξε πρόβλημα στον server." });
+    }
+};
