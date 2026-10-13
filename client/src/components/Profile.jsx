@@ -3,7 +3,13 @@ import MovieSearchModal from './MovieSearchModal';
 
 function Profile({ user, onLogout }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [watchedMovies, setWatchedMovies] = useState([]);
+
   const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
+
+  const handleAddWatchedMovie = (movie) => {
+    setWatchedMovies([movie, ...watchedMovies]);
+  };
 
   return (
     <div style={styles.container}>
@@ -31,8 +37,29 @@ function Profile({ user, onLogout }) {
         onClick={() => setIsSearchOpen(true)} 
         style={styles.searchBtn}
       >
-        🔍 Search Movies
+        🔍 Search & Log Movies
       </button>
+
+      {/* ΛΙΣΤΑ ΜΕ WATCHED MOVIES */}
+      <div style={styles.watchedSection}>
+        <h3 style={styles.subTitle}>My Watched Movies ({watchedMovies.length})</h3>
+        {watchedMovies.length === 0 ? (
+          <p style={styles.emptyText}>No movies logged yet. Search and add some!</p>
+        ) : (
+          <div style={styles.movieList}>
+            {watchedMovies.map((m) => (
+              <div key={m.id} style={styles.movieItem}>
+                <div style={styles.movieHeader}>
+                  <strong>{m.title}</strong>
+                  <span style={styles.rating}>⭐ {m.rating}/5</span>
+                </div>
+                {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
+                <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <button onClick={onLogout} style={styles.logoutBtn}>
         Logout
@@ -41,6 +68,7 @@ function Profile({ user, onLogout }) {
       <MovieSearchModal 
         isOpen={isSearchOpen} 
         onClose={() => setIsSearchOpen(false)} 
+        onAddWatchedMovie={handleAddWatchedMovie}
       />
     </div>
   );
@@ -49,7 +77,7 @@ function Profile({ user, onLogout }) {
 const styles = {
   container: {
     width: '100%',
-    maxWidth: '400px',
+    maxWidth: '450px',
     padding: '24px',
     borderRadius: '8px',
     backgroundColor: '#1e1e1e',
@@ -63,6 +91,11 @@ const styles = {
     fontSize: '22px',
     fontWeight: '600'
   },
+  subTitle: {
+    fontSize: '16px',
+    color: '#646cff',
+    marginBottom: '10px'
+  },
   avatarContainer: {
     marginBottom: '20px'
   },
@@ -70,7 +103,7 @@ const styles = {
     width: '60px',
     height: '60px',
     borderRadius: '50%',
-    backgroundColor: '#646cff', 
+    backgroundColor: '#646cff',
     color: '#ffffff',
     display: 'flex',
     alignItems: 'center',
@@ -82,12 +115,55 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-    marginBottom: '24px'
+    marginBottom: '20px'
   },
   infoText: {
     margin: 0,
     fontSize: '15px',
     color: '#e0e0e0'
+  },
+  watchedSection: {
+    marginBottom: '24px',
+    borderTop: '1px solid #333',
+    paddingTop: '16px'
+  },
+  emptyText: {
+    fontSize: '13px',
+    color: '#888',
+    fontStyle: 'italic'
+  },
+  movieList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    maxHeight: '200px',
+    overflowY: 'auto'
+  },
+  movieItem: {
+    backgroundColor: '#2b2b2b',
+    padding: '10px 12px',
+    borderRadius: '6px',
+    border: '1px solid #444'
+  },
+  movieHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '14px',
+    marginBottom: '4px'
+  },
+  rating: {
+    color: '#f5c518',
+    fontWeight: 'bold'
+  },
+  reviewText: {
+    margin: '4px 0',
+    fontSize: '13px',
+    color: '#ccc',
+    fontStyle: 'italic'
+  },
+  dateText: {
+    fontSize: '11px',
+    color: '#778'
   },
   searchBtn: {
     width: '100%',
@@ -99,7 +175,7 @@ const styles = {
     fontSize: '15px',
     fontWeight: 'bold',
     cursor: 'pointer',
-    marginBottom: '12px'
+    marginBottom: '16px'
   },
   logoutBtn: {
     width: '100%',
