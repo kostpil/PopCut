@@ -3,10 +3,6 @@ import MovieSearchModal from './MovieSearchModal';
 
 function Profile({ user, onLogout }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-<<<<<<< HEAD
-  const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
-
-=======
   const [watchedMovies, setWatchedMovies] = useState([]);
 
   const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
@@ -15,7 +11,6 @@ function Profile({ user, onLogout }) {
     setWatchedMovies([movie, ...watchedMovies]);
   };
 
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>Your Profile</h2>
@@ -42,11 +37,6 @@ function Profile({ user, onLogout }) {
         onClick={() => setIsSearchOpen(true)} 
         style={styles.searchBtn}
       >
-<<<<<<< HEAD
-        🔍 Search Movies
-      </button>
-
-=======
         🔍 Search & Log Movies
       </button>
 
@@ -71,7 +61,6 @@ function Profile({ user, onLogout }) {
         )}
       </div>
 
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
       <button onClick={onLogout} style={styles.logoutBtn}>
         Logout
       </button>
@@ -79,10 +68,7 @@ function Profile({ user, onLogout }) {
       <MovieSearchModal 
         isOpen={isSearchOpen} 
         onClose={() => setIsSearchOpen(false)} 
-<<<<<<< HEAD
-=======
         onAddWatchedMovie={handleAddWatchedMovie}
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
       />
     </div>
   );
@@ -91,11 +77,7 @@ function Profile({ user, onLogout }) {
 const styles = {
   container: {
     width: '100%',
-<<<<<<< HEAD
-    maxWidth: '400px',
-=======
     maxWidth: '450px',
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
     padding: '24px',
     borderRadius: '8px',
     backgroundColor: '#1e1e1e',
@@ -109,14 +91,11 @@ const styles = {
     fontSize: '22px',
     fontWeight: '600'
   },
-<<<<<<< HEAD
-=======
   subTitle: {
     fontSize: '16px',
     color: '#646cff',
     marginBottom: '10px'
   },
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
   avatarContainer: {
     marginBottom: '20px'
   },
@@ -124,11 +103,7 @@ const styles = {
     width: '60px',
     height: '60px',
     borderRadius: '50%',
-<<<<<<< HEAD
-    backgroundColor: '#646cff', 
-=======
     backgroundColor: '#646cff',
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
     color: '#ffffff',
     display: 'flex',
     alignItems: 'center',
@@ -140,19 +115,13 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-<<<<<<< HEAD
-    marginBottom: '24px'
-=======
     marginBottom: '20px'
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
   },
   infoText: {
     margin: 0,
     fontSize: '15px',
     color: '#e0e0e0'
   },
-<<<<<<< HEAD
-=======
   watchedSection: {
     marginBottom: '24px',
     borderTop: '1px solid #333',
@@ -196,7 +165,6 @@ const styles = {
     fontSize: '11px',
     color: '#778'
   },
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
   searchBtn: {
     width: '100%',
     padding: '12px',
@@ -207,11 +175,7 @@ const styles = {
     fontSize: '15px',
     fontWeight: 'bold',
     cursor: 'pointer',
-<<<<<<< HEAD
-    marginBottom: '12px'
-=======
     marginBottom: '16px'
->>>>>>> 24b2dae6717ab7168927144d42519fef1c3fdeca
   },
   logoutBtn: {
     width: '100%',
