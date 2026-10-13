@@ -19,7 +19,12 @@ exports.register = async (req, res) => {
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        const newUser = new User({ email: email, password: hashedPassword });
+        const newUser = new User({ 
+            email: email, 
+            password: hashedPassword,
+            age: req.body.age || null
+        });
+
         await newUser.save();
 
         res.status(201).json({ 

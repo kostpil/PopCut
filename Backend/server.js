@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
+const movieRoutes = require('./routes/movieRoutes');
 const PORT = 3000;
 
 const app = express();
@@ -18,6 +19,7 @@ mongoose.connect(DB_URL)
     .catch((err) => console.error("Σφάλμα σύνδεσης με τη βάση:", err));
 
 app.use('/api', authRoutes);
+app.use('/api', movieRoutes);
 
 app.listen(PORT, () => {
     console.log(`Ο server ξεκίνησε στο: http://localhost:${PORT}`);
