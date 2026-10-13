@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function Register() {
+function Register({ onRegisterSuccess }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -8,6 +8,8 @@ function Register() {
     email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -16,15 +18,47 @@ function Register() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Registration successful!');
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (response.status === 400 || response.status === 409 || (data.message && data.message.toLowerCase().includes('exist'))) {
+          throw new Error('Υπάρχει ήδη χρήστης με αυτό το email. Δοκιμάστε άλλο email.');
+        }
+        throw new Error(data.message || 'Αποτυχία εγγραφής. Προσπαθήστε ξανά αργότερα.');
+      }
+
+      alert('Registration successful!');
+
+      if (onRegisterSuccess) {
+        onRegisterSuccess(data);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div style={styles.container}>
-        <h3 style={{ color: '#646cff' }}>Register</h3>      
+      <h3 style={{ color: '#646cff' }}>Register</h3>      
+      
+      {error && <p style={{ color: '#ff4d4d', marginBottom: '10px' }}>{error}</p>}
+
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.field}>
           <label>First Name:</label>
@@ -88,7 +122,7 @@ function Register() {
           />
         </div>
 
-        <button type="submit" style={styles.button}>
+        <button type="submit" disabled={loading} style={styles.button}>
           Register
         </button>
       </form>
@@ -98,15 +132,15 @@ function Register() {
 
 const styles = {
   container: {
-  width: '100%',
-  padding: '24px',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-  backgroundColor: '#1e1e1e',
-  color: '#ffffff',
-  textAlign: 'left',
-  boxSizing: 'border-box'
-},
+    width: '100%',
+    padding: '24px',
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    backgroundColor: '#1e1e1e',
+    color: '#ffffff',
+    textAlign: 'left',
+    boxSizing: 'border-box'
+  },
   form: {
     display: 'flex',
     flexDirection: 'column',

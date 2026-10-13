@@ -5,6 +5,8 @@ function Login({ onLoginSuccess }) {
     email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -13,19 +15,51 @@ function Login({ onLoginSuccess }) {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Login successful!');
+    setError('');
+    setLoading(true);
 
-    if (onLoginSuccess) {
-      onLoginSuccess(formData);
+    try {
+      // Καλούμε το σωστό endpoint του backend
+      const response = await fetch('http://localhost:3000/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Αν τα στοιχεία είναι λάθος ή δεν υπάρχει ο χρήστης στη MongoDB
+        throw new Error(data.message || 'Αποτυχία σύνδεσης. Ελέγξτε τα στοιχεία σας.');
+      }
+
+      // Αποθηκεύουμε το token στο localStorage αν επιστραφεί
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+      }
+
+      alert('Login successful!');
+
+      if (onLoginSuccess) {
+        onLoginSuccess(data.user || formData);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div style={styles.container}>
       <h3 style={{ color: '#646cff' }}>Login</h3>
+      
+      {error && <p style={{ color: '#ff4d4d', marginBottom: '10px' }}>{error}</p>}
+
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.field}>
           <label>Email:</label>
@@ -51,8 +85,8 @@ function Login({ onLoginSuccess }) {
           />
         </div>
 
-        <button type="submit" style={styles.button}>
-          Login
+        <button type="submit" disabled={loading} style={styles.button}>
+          {loading ? 'Σύνδεση...' : 'Login'}
         </button>
       </form>
     </div>
@@ -60,15 +94,15 @@ function Login({ onLoginSuccess }) {
 }
 
 const styles = {
- container: {
-  width: '100%',
-  padding: '24px',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-  backgroundColor: '#1e1e1e',
-  color: '#ffffff',
-  textAlign: 'left',
-  boxSizing: 'border-box'
+  container: {
+    width: '100%',
+    padding: '24px',
+    borderRadius: '8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    backgroundColor: '#1e1e1e',
+    color: '#ffffff',
+    textAlign: 'left',
+    boxSizing: 'border-box'
   },
   form: {
     display: 'flex',
