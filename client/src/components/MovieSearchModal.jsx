@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 
 function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
-  const [movies, setMovies] = useState([]); // Αποθήκευση ταινιών από τη MongoDB
+  const [movies, setMovies] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -9,7 +9,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
   const [rating, setRating] = useState('5');
   const [review, setReview] = useState('');
 
-  // Φόρτωση ταινιών από το backend μόλις ανοίγει το modal
+  // Φόρτωση ταινιών από το backend
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
@@ -17,7 +17,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
       fetch('http://localhost:3000/api/movies')
         .then((response) => {
           if (!response.ok) {
-            throw new Error('Αποτυχία φόρτωσης ταινιών');
+            throw new Error('Error fetching movies from the server.');
           }
           return response.json();
         })
@@ -26,8 +26,8 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
           setLoading(false);
         })
         .catch((err) => {
-          console.error('Σφάλμα κατά τη φόρτωση:', err);
-          setError('Δεν ήταν δυνατή η φόρτωση των ταινιών.');
+          console.error('Error fetching movies:', err);
+          setError('Failed to fetch movies from the server.');
           setLoading(false);
         });
     }
@@ -45,6 +45,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
       id: Date.now(),
       movieId: selectedMovie._id || selectedMovie.id,
       title: selectedMovie.title,
+      poster_url: selectedMovie.poster_url,
       rating: Number(rating),
       review: review,
       watchedAt: new Date().toLocaleDateString()
@@ -54,7 +55,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
       onAddWatchedMovie(newWatched);
     }
 
-    alert(`Η ταινία "${selectedMovie.title}" καταγράφηκε επιτυχώς!`);
+    alert(`The movie "${selectedMovie.title}" has been rated successfully!`);
     setSelectedMovie(null);
     setReview('');
     setRating('5');
@@ -80,7 +81,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
 
             <p style={styles.hint}></p>
 
-            {loading && <p style={{ textAlign: 'center', color: '#aaa' }}>Φόρτωση ταινιών...</p>}
+            {loading && <p style={{ textAlign: 'center', color: '#aaa' }}>Fetching movies...</p>}
             {error && <p style={{ textAlign: 'center', color: '#ff6b6b' }}>{error}</p>}
 
             {!loading && !error && (
@@ -92,15 +93,23 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
                       style={styles.card}
                       onClick={() => setSelectedMovie(movie)}
                     >
-                      <div style={styles.posterPlaceholder}>
-                        <span>Poster Box</span>
-                      </div>
+                      {movie.poster_url ? (
+                        <img 
+                          src={movie.poster_url} 
+                          alt={movie.title} 
+                          style={styles.posterImage} 
+                        />
+                      ) : (
+                        <div style={styles.posterPlaceholder}>
+                          <span>Poster Box</span>
+                        </div>
+                      )}
                       <p style={styles.movieTitle}>{movie.title}</p>
                     </div>
                   ))
                 ) : (
                   <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#aaa' }}>
-                    Δεν βρέθηκαν ταινίες.
+                    No movies found.
                   </p>
                 )}
               </div>
@@ -108,7 +117,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
           </>
         ) : (
           <div>
-            <h3 style={styles.title}>Log Movie: {selectedMovie.title}</h3>
+            <h3 style={styles.title}>Rate Movie: {selectedMovie.title}</h3>
             <form onSubmit={handleLogSubmit} style={styles.form}>
               <div style={styles.field}>
                 <label>Rating (1 - 5):</label>
@@ -128,7 +137,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
               <div style={styles.field}>
                 <label>Review (optional):</label>
                 <textarea
-                  placeholder="Write your thoughts..."
+                  placeholder="Write your thoughts.."
                   value={review}
                   onChange={(e) => setReview(e.target.value)}
                   style={styles.textarea}
@@ -177,58 +186,136 @@ const styles = {
     boxShadow: '0 0 20px rgba(100, 108, 255, 0.3)'
   },
   closeBtn: {
-    position: 'absolute', top: '16px', right: '16px',
-    background: 'none', border: 'none', color: '#ffffff', fontSize: '20px', cursor: 'pointer'
+    position: 'absolute',
+    top: '16px', 
+    right: '16px',
+    background: 'none', 
+    border: 'none', 
+    color: '#ffffff', 
+    fontSize: '20px', 
+    cursor: 'pointer'
   },
   title: {
-    textAlign: 'center', marginTop: 0, marginBottom: '20px', fontSize: '22px', color: '#646cff'
+    textAlign: 'center', 
+    marginTop: 0, 
+    marginBottom: '20px', 
+    fontSize: '22px', 
+    color: '#646cff'
   },
   hint: {
-    textAlign: 'center', fontSize: '13px', color: '#aaa', marginBottom: '16px'
+    textAlign: 'center', 
+    fontSize: '13px', 
+    color: '#aaa', 
+    marginBottom: '16px'
   },
   searchContainer: {
-    display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px'
+    display: 'flex', 
+    justifyContent: 'center', 
+    gap: '10px', 
+    marginBottom: '16px'
   },
   input: {
-    width: '100%', padding: '10px 14px', borderRadius: '6px',
-    border: '1px solid #444', backgroundColor: '#2b2b2b', color: '#ffffff', fontSize: '14px', outline: 'none'
+    width: '100%', 
+    padding: '10px 14px', 
+    borderRadius: '6px',
+    border: '1px solid #444', 
+    backgroundColor: '#2b2b2b', 
+    color: '#ffffff', 
+    fontSize: '14px', 
+    outline: 'none'
   },
   textarea: {
-    width: '100%', padding: '10px 14px', borderRadius: '6px',
-    border: '1px solid #444', backgroundColor: '#2b2b2b', color: '#ffffff', fontSize: '14px', outline: 'none', resize: 'vertical'
+    width: '100%', 
+    padding: '10px 14px', 
+    borderRadius: '6px',
+    border: '1px solid #444', 
+    backgroundColor: '#2b2b2b', 
+    color: '#ffffff', 
+    fontSize: '14px', 
+    outline: 'none', 
+    resize: 'vertical'
   },
   searchBtn: {
-    width: '100%', padding: '12px', borderRadius: '6px', border: 'none',
-    backgroundColor: '#646cff', color: '#ffffff', cursor: 'pointer', fontWeight: 'bold'
+    width: '100%', 
+    padding: '12px', 
+    borderRadius: '6px', 
+    border: 'none',
+    backgroundColor: '#646cff', 
+    color: '#ffffff', 
+    cursor: 'pointer', 
+    fontWeight: 'bold'
   },
   cancelBtn: {
-    width: '100%', padding: '12px', borderRadius: '6px', border: 'none',
-    backgroundColor: '#444', color: '#ffffff', cursor: 'pointer', fontWeight: 'bold'
+    width: '100%', 
+    padding: '12px', 
+    borderRadius: '6px', 
+    border: 'none',
+    backgroundColor: '#444', 
+    color: '#ffffff', 
+    cursor: 'pointer', 
+    fontWeight: 'bold'
   },
   form: {
-    display: 'flex', flexDirection: 'column', gap: '16px'
+    display: 'flex', 
+    flexDirection: 'column', 
+    gap: '16px'
   },
   field: {
-    display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left'
+    display: 'flex', 
+    flexDirection: 'column', 
+    gap: '6px', 
+    textAlign: 'left'
   },
   btnGroup: {
-    display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px'
+    display: 'flex', 
+    flexDirection: 'column', 
+    gap: '10px', 
+    marginTop: '10px'
   },
   grid: {
-    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '16px', justifyItems: 'center'
+    display: 'grid', 
+    gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', 
+    gap: '16px', 
+    justifyItems: 'center'
   },
   card: {
-    width: '100%', backgroundColor: '#2b2b2b', borderRadius: '8px', padding: '10px',
-    textAlign: 'center', boxSizing: 'border-box', border: '1px solid #444', cursor: 'pointer',
+    width: '100%', 
+    backgroundColor: '#2b2b2b', 
+    borderRadius: '8px', 
+    padding: '10px',
+    textAlign: 'center', 
+    boxSizing: 'border-box', 
+    border: '1px solid #444', 
+    cursor: 'pointer',
     transition: 'transform 0.2s'
   },
+  posterImage: {
+    width: '100%',
+    height: '150px',
+    objectFit: 'cover',
+    borderRadius: '6px',
+    marginBottom: '8px'
+  },
   posterPlaceholder: {
-    width: '100%', height: '150px', backgroundColor: '#3a3a3a', borderRadius: '6px',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#aaa', fontSize: '12px', marginBottom: '8px'
+    width: '100%', 
+    height: '150px', 
+    backgroundColor: '#3a3a3a', 
+    borderRadius: '6px',
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    color: '#aaa', 
+    fontSize: '12px', 
+    marginBottom: '8px'
   },
   movieTitle: {
-    margin: 0, fontSize: '13px', fontWeight: 'bold', color: '#ffffff',
-    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'
+    margin: 0, 
+    fontSize: '13px', 
+    fontWeight: 'bold', 
+    color: '#ffffff',
+    whiteSpace: 'nowrap', 
+    overflow: 'hidden', 
+    textOverflow: 'ellipsis'
   }
 };
 

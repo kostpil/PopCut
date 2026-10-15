@@ -21,7 +21,6 @@ function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      // Καλούμε το σωστό endpoint του backend
       const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: {
@@ -33,11 +32,9 @@ function Login({ onLoginSuccess }) {
       const data = await response.json();
 
       if (!response.ok) {
-        // Αν τα στοιχεία είναι λάθος ή δεν υπάρχει ο χρήστης στη MongoDB
-        throw new Error(data.message || 'Αποτυχία σύνδεσης. Ελέγξτε τα στοιχεία σας.');
+        throw new Error(data.message || 'Failed to login. Please check your credentials.');
       }
 
-      // Αποθηκεύουμε το token στο localStorage αν επιστραφεί
       if (data.token) {
         localStorage.setItem('token', data.token);
       }
@@ -86,7 +83,7 @@ function Login({ onLoginSuccess }) {
         </div>
 
         <button type="submit" disabled={loading} style={styles.button}>
-          {loading ? 'Σύνδεση...' : 'Login'}
+          {loading ? 'Logging in...' : 'Login'}
         </button>
       </form>
     </div>

@@ -36,9 +36,9 @@ function Register({ onRegisterSuccess }) {
 
       if (!response.ok) {
         if (response.status === 400 || response.status === 409 || (data.message && data.message.toLowerCase().includes('exist'))) {
-          throw new Error('Υπάρχει ήδη χρήστης με αυτό το email. Δοκιμάστε άλλο email.');
+          throw new Error('A user with that email already exists. Please try a different email.');
         }
-        throw new Error(data.message || 'Αποτυχία εγγραφής. Προσπαθήστε ξανά αργότερα.');
+        throw new Error(data.message || 'Failed to register. Please try again later.');
       }
 
       alert('Registration successful!');

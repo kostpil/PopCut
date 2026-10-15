@@ -1,14 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MovieSearchModal from './MovieSearchModal';
 
 function Profile({ user, onLogout }) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [watchedMovies, setWatchedMovies] = useState([]);
 
+  const [editingMovieId, setEditingMovieId] = useState(null);
+  const [editRating, setEditRating] = useState('5');
+  const [editReview, setEditReview] = useState('');
+
   const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
 
+  useEffect(() => {
+    const saved = localStorage.getItem(`watchedMovies_${user?.email || 'default'}`);
+    if (saved) {
+      try {
+        setWatchedMovies(JSON.parse(saved));
+      } catch (err) {
+        console.error("Failed to parse saved movies", err);
+      }
+    }
+  }, [user]);
+
+  const updateAndSaveMovies = (newList) => {
+    setWatchedMovies(newList);
+    localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(newList));
+  };
+
+  // Προσθήκη νέας ταινίας
   const handleAddWatchedMovie = (movie) => {
-    setWatchedMovies([movie, ...watchedMovies]);
+    const updated = [movie, ...watchedMovies];
+    updateAndSaveMovies(updated);
+  };
+
+  // Διαγραφή ταινίας
+  const handleDeleteMovie = (id) => {
+    const updated = watchedMovies.filter((m) => m.id !== id);
+    updateAndSaveMovies(updated);
+  };
+
+  // Έναρξη επεξεργασίας
+  const handleStartEdit = (movie) => {
+    setEditingMovieId(movie.id);
+    setEditRating(String(movie.rating));
+    setEditReview(movie.review || '');
+  };
+
+  // Αποθήκευση αλλαγών επεξεργασίας
+  const handleSaveEdit = (id) => {
+    const updated = watchedMovies.map((m) => {
+      if (m.id === id) {
+        return {
+          ...m,
+          rating: Number(editRating),
+          review: editReview
+        };
+      }
+      return m;
+    });
+    updateAndSaveMovies(updated);
+    setEditingMovieId(null);
   };
 
   return (
@@ -37,26 +88,83 @@ function Profile({ user, onLogout }) {
         onClick={() => setIsSearchOpen(true)} 
         style={styles.searchBtn}
       >
-        🔍 Search & Log Movies
+        🔍 Search & Rate Movies
       </button>
 
-      {/* ΛΙΣΤΑ ΜΕ WATCHED MOVIES */}
       <div style={styles.watchedSection}>
         <h3 style={styles.subTitle}>My Watched Movies ({watchedMovies.length})</h3>
         {watchedMovies.length === 0 ? (
           <p style={styles.emptyText}>No movies logged yet. Search and add some!</p>
         ) : (
           <div style={styles.movieList}>
-            {watchedMovies.map((m) => (
-              <div key={m.id} style={styles.movieItem}>
-                <div style={styles.movieHeader}>
-                  <strong>{m.title}</strong>
-                  <span style={styles.rating}>⭐ {m.rating}/5</span>
+            {watchedMovies.map((m) => {
+              const isEditing = editingMovieId === m.id;
+
+              return (
+                <div key={m.id} style={styles.movieItem}>
+                  {isEditing ? (
+                    <div style={styles.editBox}>
+                      <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#646cff' }}>
+                        Edit: {m.title}
+                      </p>
+                      
+                      <div style={styles.fieldGroup}>
+                        <label style={{ fontSize: '12px' }}>Rating:</label>
+                        <select 
+                          value={editRating} 
+                          onChange={(e) => setEditRating(e.target.value)}
+                          style={styles.editInput}
+                        >
+                          <option value="1">⭐ 1/5</option>
+                          <option value="2">⭐⭐ 2/5</option>
+                          <option value="3">⭐⭐⭐ 3/5</option>
+                          <option value="4">⭐⭐⭐⭐ 4/5</option>
+                          <option value="5">⭐⭐⭐⭐⭐ 5/5</option>
+                        </select>
+                      </div>
+
+                      <div style={styles.fieldGroup}>
+                        <label style={{ fontSize: '12px' }}>Review:</label>
+                        <textarea 
+                          value={editReview} 
+                          onChange={(e) => setEditReview(e.target.value)}
+                          style={styles.editTextarea}
+                          rows="2"
+                        />
+                      </div>
+
+                      <div style={styles.actionRow}>
+                        <button onClick={() => handleSaveEdit(m.id)} style={styles.saveBtn}>
+                          Save
+                        </button>
+                        <button onClick={() => setEditingMovieId(null)} style={styles.cancelBtn}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={styles.movieHeader}>
+                        <strong>{m.title}</strong>
+                        <span style={styles.rating}>⭐ {m.rating}/5</span>
+                      </div>
+                      {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
+                      <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
+
+                      {/* Κουμπιά Edit & Delete */}
+                      <div style={styles.actionRow}>
+                        <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDeleteMovie(m.id)} style={styles.deleteBtn}>
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-                {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
-                <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -136,7 +244,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
-    maxHeight: '200px',
+    maxHeight: '260px',
     overflowY: 'auto'
   },
   movieItem: {
@@ -187,6 +295,78 @@ const styles = {
     fontSize: '14px',
     fontWeight: 'bold',
     cursor: 'pointer'
+  },
+  actionRow: {
+    display: 'flex',
+    gap: '8px',
+    marginTop: '8px'
+  },
+  editBtn: {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: 'none',
+    backgroundColor: '#646cff',
+    color: '#fff',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  },
+  deleteBtn: {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    border: 'none',
+    backgroundColor: '#ef4444',
+    color: '#fff',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  },
+  editBox: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px'
+  },
+  fieldGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '2px'
+  },
+  editInput: {
+    padding: '6px',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    backgroundColor: '#1e1e1e',
+    color: '#fff',
+    fontSize: '12px'
+  },
+  editTextarea: {
+    padding: '6px',
+    borderRadius: '4px',
+    border: '1px solid #555',
+    backgroundColor: '#1e1e1e',
+    color: '#fff',
+    fontSize: '12px',
+    resize: 'vertical'
+  },
+  saveBtn: {
+    padding: '4px 10px',
+    borderRadius: '4px',
+    border: 'none',
+    backgroundColor: '#10b981',
+    color: '#fff',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
+  },
+  cancelBtn: {
+    padding: '4px 10px',
+    borderRadius: '4px',
+    border: 'none',
+    backgroundColor: '#6b7280',
+    color: '#fff',
+    fontSize: '12px',
+    cursor: 'pointer',
+    fontWeight: 'bold'
   }
 };
 
