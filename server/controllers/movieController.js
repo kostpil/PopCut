@@ -20,3 +20,19 @@ exports.populateMovies = async (req, res) => {
         res.status(500).json({ error: "Υπήρξε πρόβλημα κατά την αποθήκευση των ταινιών." });
     }
 };
+
+exports.getMovies = async (req, res) => {
+    try {
+        const { search } = req.query;
+        let query = {};
+
+        if (search) {
+            query.title = { $regex: search, $options: 'i' };
+        }
+
+        const movies = await Movie.find(query);
+        res.json(movies);
+    } catch (error) {
+        res.status(500).json({ error: "Υπήρξε πρόβλημα κατά την ανάκτηση των ταινιών." });
+    }
+};
