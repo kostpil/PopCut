@@ -1,32 +1,50 @@
-import { useState } from 'react';
-
-const TEST_MOVIES = [
-  { id: 1, title: 'The Dark Knight' },
-  { id: 2, title: 'The Departed' },
-  { id: 3, title: 'The Godfather' },
-  { id: 4, title: 'The Lion King' },
-  { id: 5, title: 'Lord of the Rings' },
-  { id: 6, title: 'The Matrix' },
-  { id: 7, title: 'Shawshank Redemption' },
-  { id: 8, title: 'Silence of the Lambs' },
-];
+import { useState, useEffect } from 'react';
 
 function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
+  const [movies, setMovies] = useState([]); // Αποθήκευση ταινιών από τη MongoDB
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMovie, setSelectedMovie] = useState(null); // Ταινία που επιλέχθηκε για log
+  const [selectedMovie, setSelectedMovie] = useState(null);
   const [rating, setRating] = useState('5');
   const [review, setReview] = useState('');
 
+  // Φόρτωση ταινιών από το backend μόλις ανοίγει το modal
+  useEffect(() => {
+    if (isOpen) {
+      setLoading(true);
+      setError(null);
+      fetch('http://localhost:3000/api/movies')
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error('Αποτυχία φόρτωσης ταινιών');
+          }
+          return response.json();
+        })
+        .then((data) => {
+          setMovies(data);
+          setLoading(false);
+        })
+        .catch((err) => {
+          console.error('Σφάλμα κατά τη φόρτωση:', err);
+          setError('Δεν ήταν δυνατή η φόρτωση των ταινιών.');
+          setLoading(false);
+        });
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  const filteredMovies = TEST_MOVIES.filter((movie) =>
-    movie.title.toLowerCase().includes(searchTerm.toLowerCase())
+  // Φιλτράρισμα των ταινιών που ήρθαν από τη MongoDB
+  const filteredMovies = movies.filter((movie) =>
+    movie.title ? movie.title.toLowerCase().includes(searchTerm.toLowerCase()) : false
   );
 
   const handleLogSubmit = (e) => {
     e.preventDefault();
     const newWatched = {
       id: Date.now(),
+      movieId: selectedMovie._id || selectedMovie.id,
       title: selectedMovie.title,
       rating: Number(rating),
       review: review,
@@ -59,28 +77,37 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
               />
-              <button style={styles.searchBtn}>🔍</button>
             </div>
 
             <p style={styles.hint}>Κάνε κλικ σε μια ταινία για να την καταγράψεις (Log Movie)</p>
 
-            <div style={styles.grid}>
-              {filteredMovies.map((movie) => (
-                <div 
-                  key={movie.id} 
-                  style={styles.card}
-                  onClick={() => setSelectedMovie(movie)}
-                >
-                  <div style={styles.posterPlaceholder}>
-                    <span>Poster Box</span>
-                  </div>
-                  <p style={styles.movieTitle}>{movie.title}</p>
-                </div>
-              ))}
-            </div>
+            {loading && <p style={{ textAlign: 'center', color: '#aaa' }}>Φόρτωση ταινιών...</p>}
+            {error && <p style={{ textAlign: 'center', color: '#ff6b6b' }}>{error}</p>}
+
+            {!loading && !error && (
+              <div style={styles.grid}>
+                {filteredMovies.length > 0 ? (
+                  filteredMovies.map((movie) => (
+                    <div 
+                      key={movie._id || movie.id} 
+                      style={styles.card}
+                      onClick={() => setSelectedMovie(movie)}
+                    >
+                      <div style={styles.posterPlaceholder}>
+                        <span>Poster Box</span>
+                      </div>
+                      <p style={styles.movieTitle}>{movie.title}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ gridColumn: '1 / -1', textAlign: 'center', color: '#aaa' }}>
+                    Δεν βρέθηκαν ταινίες.
+                  </p>
+                )}
+              </div>
+            )}
           </>
         ) : (
-          /* ΦΟΡΜΑ ΓΙΑ LOG MOVIE (Rating & Review) */
           <div>
             <h3 style={styles.title}>Log Movie: {selectedMovie.title}</h3>
             <form onSubmit={handleLogSubmit} style={styles.form}>
