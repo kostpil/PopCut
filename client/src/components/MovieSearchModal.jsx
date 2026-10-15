@@ -35,7 +35,6 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
 
   if (!isOpen) return null;
 
-  // Φιλτράρισμα των ταινιών που ήρθαν από τη MongoDB
   const filteredMovies = movies.filter((movie) =>
     movie.title ? movie.title.toLowerCase().includes(searchTerm.toLowerCase()) : false
   );
@@ -79,7 +78,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
               />
             </div>
 
-            <p style={styles.hint}>Κάνε κλικ σε μια ταινία για να την καταγράψεις (Log Movie)</p>
+            <p style={styles.hint}></p>
 
             {loading && <p style={{ textAlign: 'center', color: '#aaa' }}>Φόρτωση ταινιών...</p>}
             {error && <p style={{ textAlign: 'center', color: '#ff6b6b' }}>{error}</p>}
