@@ -222,7 +222,8 @@ const styles = {
     marginTop: 0,
     marginBottom: '20px',
     fontSize: '22px',
-    fontWeight: '600'
+    fontWeight: '600',
+    color: '#ffffff' 
   },
   subTitle: {
     fontSize: '16px',
