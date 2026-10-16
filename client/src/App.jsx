@@ -46,7 +46,10 @@ function App() {
         </div>
       ) : (
         <div style={styles.cardWrapper}>
-          <Register onLoginSuccess={handleLoginSuccess} />
+          {/* Αφαιρέσαμε το onRegisterSuccess και αφήσαμε μόνο το onSwitchToLogin */}
+          <Register 
+            onSwitchToLogin={() => setIsLogin(true)} 
+          />
           <p style={styles.text}>
             Already have an account?{' '}
             <button 

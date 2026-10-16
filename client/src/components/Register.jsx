@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-function Register({ onRegisterSuccess }) {
+function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -45,6 +45,10 @@ function Register({ onRegisterSuccess }) {
 
       if (onRegisterSuccess) {
         onRegisterSuccess(data);
+      }
+
+      if (onSwitchToLogin) {
+        onSwitchToLogin();
       }
     } catch (err) {
       setError(err.message);
@@ -126,6 +130,19 @@ function Register({ onRegisterSuccess }) {
           Register
         </button>
       </form>
+
+      {/* Koumpi gia xeirokiniti metafora sto Login an o xristis exei idi logariasmo */}
+      {onSwitchToLogin && (
+        <p style={{ marginTop: '16px', fontSize: '14px', textAlign: 'center' }}>
+          Already have an account?{' '}
+          <span 
+            onClick={onSwitchToLogin} 
+            style={{ color: '#646cff', cursor: 'pointer', textDecoration: 'underline', fontWeight: 'bold' }}
+          >
+            Log in here
+          </span>
+        </p>
+      )}
     </div>
   );
 }

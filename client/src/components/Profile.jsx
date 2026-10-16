@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import MovieSearchModal from './MovieSearchModal';
 
-function Profile({ user, onLogout }) {
+function Profile({ user: initialUser, onLogout }) {
+  const [user, setUser] = useState(initialUser);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [watchedMovies, setWatchedMovies] = useState([]);
 
@@ -9,10 +10,37 @@ function Profile({ user, onLogout }) {
   const [editRating, setEditRating] = useState('5');
   const [editReview, setEditReview] = useState('');
 
-  const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
-
+  // Φόρτωση πλήρους προφίλ από το σωστό endpoint /api/users/profile
   useEffect(() => {
-    const saved = localStorage.getItem(`watchedMovies_${user?.email || 'default'}`);
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      fetch('http://localhost:3000/api/users/profile', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+        .then((res) => {
+          if (res.status === 401) {
+            throw new Error('Unauthorized - Please log in again.');
+          }
+          if (!res.ok) {
+            throw new Error('Failed to fetch profile');
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data) {
+            setUser(data); // Ενημερώνουμε με τα στοιχεία από τη βάση (age, email κλπ)
+          }
+        })
+        .catch((err) => console.error("Error fetching profile:", err));
+    }
+
+    // Φόρτωση αποθηκευμένων ταινιών
+    const saved = localStorage.getItem(`watchedMovies_${initialUser?.email || 'default'}`);
     if (saved) {
       try {
         setWatchedMovies(JSON.parse(saved));
@@ -20,33 +48,31 @@ function Profile({ user, onLogout }) {
         console.error("Failed to parse saved movies", err);
       }
     }
-  }, [user]);
+  }, []);
+
+  const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
 
   const updateAndSaveMovies = (newList) => {
     setWatchedMovies(newList);
     localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(newList));
   };
 
-  // Προσθήκη νέας ταινίας
   const handleAddWatchedMovie = (movie) => {
     const updated = [movie, ...watchedMovies];
     updateAndSaveMovies(updated);
   };
 
-  // Διαγραφή ταινίας
   const handleDeleteMovie = (id) => {
     const updated = watchedMovies.filter((m) => m.id !== id);
     updateAndSaveMovies(updated);
   };
 
-  // Έναρξη επεξεργασίας
   const handleStartEdit = (movie) => {
     setEditingMovieId(movie.id);
     setEditRating(String(movie.rating));
     setEditReview(movie.review || '');
   };
 
-  // Αποθήκευση αλλαγών επεξεργασίας
   const handleSaveEdit = (id) => {
     const updated = watchedMovies.map((m) => {
       if (m.id === id) {
@@ -62,6 +88,8 @@ function Profile({ user, onLogout }) {
     setEditingMovieId(null);
   };
 
+  const userAge = user?.age !== undefined && user?.age !== null ? user.age : 'N/A';
+
   return (
     <div style={styles.container}>
       <h2 style={styles.title}>Your Profile</h2>
@@ -72,14 +100,14 @@ function Profile({ user, onLogout }) {
 
       <div style={styles.infoGroup}>
         <p style={styles.infoText}>
-          <strong>Email:</strong> {user?.email}
+          <strong>Email:</strong> {user?.email || 'N/A'}
         </p>
         <p style={styles.infoText}>
-          <strong>Age:</strong> {user?.age || '44'}
+          <strong>Age:</strong> {userAge}
         </p>
-        {user?.firstName && (
+        {(user?.firstName || user?.first_name) && (
           <p style={styles.infoText}>
-            <strong>Name:</strong> {user.firstName} {user.lastName || ''}
+            <strong>Name:</strong> {user.firstName || user.first_name} {user.lastName || user.last_name || ''}
           </p>
         )}
       </div>
@@ -151,7 +179,6 @@ function Profile({ user, onLogout }) {
                       {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
                       <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
 
-                      {/* Κουμπιά Edit & Delete */}
                       <div style={styles.actionRow}>
                         <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
                           Edit

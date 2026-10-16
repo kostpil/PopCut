@@ -9,9 +9,13 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
   const [rating, setRating] = useState('5');
   const [review, setReview] = useState('');
 
-  // Φόρτωση ταινιών από το backend
   useEffect(() => {
     if (isOpen) {
+      setSelectedMovie(null);
+      setSearchTerm('');
+      setReview('');
+      setRating('5');
+      
       setLoading(true);
       setError(null);
       fetch('http://localhost:3000/api/movies')
@@ -79,8 +83,6 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
               />
             </div>
 
-            <p style={styles.hint}></p>
-
             {loading && <p style={{ textAlign: 'center', color: '#aaa' }}>Fetching movies...</p>}
             {error && <p style={{ textAlign: 'center', color: '#ff6b6b' }}>{error}</p>}
 
@@ -104,7 +106,15 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
                           <span>Poster Box</span>
                         </div>
                       )}
+                      
                       <p style={styles.movieTitle}>{movie.title}</p>
+                      
+                      {(movie.year || movie.release_year) && (
+                        <p style={styles.movieSubText}>Year: {movie.year || movie.release_year}</p>
+                      )}
+                      {movie.genre && (
+                        <p style={styles.movieSubText}>{Array.isArray(movie.genre) ? movie.genre.join(', ') : movie.genre}</p>
+                      )}
                     </div>
                   ))
                 ) : (
@@ -201,12 +211,6 @@ const styles = {
     marginBottom: '20px', 
     fontSize: '22px', 
     color: '#646cff'
-  },
-  hint: {
-    textAlign: 'center', 
-    fontSize: '13px', 
-    color: '#aaa', 
-    marginBottom: '16px'
   },
   searchContainer: {
     display: 'flex', 
@@ -315,6 +319,14 @@ const styles = {
     color: '#ffffff',
     whiteSpace: 'nowrap', 
     overflow: 'hidden', 
+    textOverflow: 'ellipsis'
+  },
+  movieSubText: {
+    margin: '2px 0 0 0',
+    fontSize: '11px',
+    color: '#aaa',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
     textOverflow: 'ellipsis'
   }
 };
