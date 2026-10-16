@@ -18,7 +18,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
       
       setLoading(true);
       setError(null);
-      fetch('http://localhost:3000/api/movies')
+      fetch('http://localhost:3000/api/movies' )
         .then((response) => {
           if (!response.ok) {
             throw new Error('Error fetching movies from the server.');

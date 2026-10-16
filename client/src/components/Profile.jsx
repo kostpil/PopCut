@@ -10,7 +10,6 @@ function Profile({ user: initialUser, onLogout }) {
   const [editRating, setEditRating] = useState('5');
   const [editReview, setEditReview] = useState('');
 
-  // Φόρτωση πλήρους προφίλ από το σωστό endpoint /api/users/profile
   useEffect(() => {
     const token = localStorage.getItem('token');
     
@@ -33,13 +32,12 @@ function Profile({ user: initialUser, onLogout }) {
         })
         .then((data) => {
           if (data) {
-            setUser(data); // Ενημερώνουμε με τα στοιχεία από τη βάση (age, email κλπ)
+            setUser(data) ;
           }
         })
         .catch((err) => console.error("Error fetching profile:", err));
     }
 
-    // Φόρτωση αποθηκευμένων ταινιών
     const saved = localStorage.getItem(`watchedMovies_${initialUser?.email || 'default'}`);
     if (saved) {
       try {
