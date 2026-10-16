@@ -46,19 +46,10 @@ function App() {
         </div>
       ) : (
         <div style={styles.cardWrapper}>
-          {/* Αφαιρέσαμε το onRegisterSuccess και αφήσαμε μόνο το onSwitchToLogin */}
+          {/* Αφαιρέθηκε το διπλό <p> από κάτω, γιατί το Register.jsx διαθέτει ήδη το δικό του link */}
           <Register 
             onSwitchToLogin={() => setIsLogin(true)} 
           />
-          <p style={styles.text}>
-            Already have an account?{' '}
-            <button 
-              onClick={() => setIsLogin(true)} 
-              style={styles.toggleBtn}
-            >
-              Login
-            </button>
-          </p>
         </div>
       )}
     </div>
@@ -104,4 +95,4 @@ const styles = {
   }
 };
 
-export default App; 
+export default App;
