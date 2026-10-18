@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000'
+  : 'https://moviebook-2-production.up.railway.app';
+
 function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
   const [movies, setMovies] = useState([]); 
   const [loading, setLoading] = useState(false);
@@ -18,7 +22,7 @@ function MovieSearchModal({ isOpen, onClose, onAddWatchedMovie }) {
       
       setLoading(true);
       setError(null);
-      fetch('http://localhost:3000/api/movies' )
+      fetch(`${API_BASE_URL}/api/movies`)
         .then((response) => {
           if (!response.ok) {
             throw new Error('Error fetching movies from the server.');

@@ -1,5 +1,9 @@
 import { useState } from 'react';
 
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000'
+  : 'https://moviebook-2-production.up.railway.app';
+
 function Register({ onRegisterSuccess, onSwitchToLogin }) {
   const [formData, setFormData] = useState({
     firstName: '',
@@ -24,7 +28,7 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3000/api/register', { 
+      const response = await fetch(`${API_BASE_URL}/api/register`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -131,7 +135,6 @@ function Register({ onRegisterSuccess, onSwitchToLogin }) {
         </button>
       </form>
 
-      {/* Koumpi gia xeirokiniti metafora sto Login an o xristis exei idi logariasmo */}
       {onSwitchToLogin && (
         <p style={{ marginTop: '16px', fontSize: '14px', textAlign: 'center' }}>
           Already have an account?{' '}

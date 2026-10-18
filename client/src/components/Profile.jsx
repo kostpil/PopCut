@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import MovieSearchModal from './MovieSearchModal';
 
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000'
+  : 'https://moviebook-2-production.up.railway.app';
+
 function Profile({ user: initialUser, onLogout }) {
   const [user, setUser] = useState(initialUser);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -14,7 +18,7 @@ function Profile({ user: initialUser, onLogout }) {
     const token = localStorage.getItem('token');
     
     if (token) {
-      fetch('http://localhost:3000/api/users/profile', {
+      fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -32,7 +36,7 @@ function Profile({ user: initialUser, onLogout }) {
         })
         .then((data) => {
           if (data) {
-            setUser(data) ;
+            setUser(data);
           }
         })
         .catch((err) => console.error("Error fetching profile:", err));
