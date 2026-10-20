@@ -52,14 +52,24 @@
 
 body {
   margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #FAF0E6; 
+  color: #2C1A1D; 
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
 }
 
+
 #root {
-  width: 1126px;
+  width: 100%;
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0;
+  padding: 0;
   text-align: center;
-  border-inline: 1px solid var(--border);
+  border: none;
+  border-inline: none; 
+  box-shadow: none;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
