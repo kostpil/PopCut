@@ -51,3 +51,21 @@ exports.getAllWatchedMovies = async (req, res) => {
         res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση του Community Feed", error: error.message });
     }
 };
+
+exports.getWatchedMovieById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const watchedMovie = await WatchedMovie.findById(id)
+            .populate('user_id', 'email username')
+            .populate('movie_id');
+
+        if (!watchedMovie) {
+            return res.status(404).json({ message: "Η καταγραφή δεν βρέθηκε!" });
+        }
+
+        res.status(200).json(watchedMovie);
+    } catch (error) {
+        res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση της ταινίας", error: error.message });
+    }
+};
