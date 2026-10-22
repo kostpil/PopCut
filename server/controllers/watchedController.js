@@ -38,3 +38,16 @@ exports.getUserWatchedMovies = async (req, res) => {
         res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των ταινιών", error: error.message });
     }
 };
+
+exports.getAllWatchedMovies = async (req, res) => {
+    try {
+        const feed = await WatchedMovie.find()
+            .populate('user_id', 'email username')
+            .populate('movie_id', 'title year poster_url')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(feed);
+    } catch (error) {
+        res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση του Community Feed", error: error.message });
+    }
+};

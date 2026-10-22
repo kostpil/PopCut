@@ -5,5 +5,6 @@ const authMiddleware = require('../middleware/authMiddleware');
 
 router.post('/watched', authMiddleware, watchedController.logMovie);
 router.get('/watched', authMiddleware, watchedController.getUserWatchedMovies);
+router.get('/feed', watchedController.getAllWatchedMovies);
 
 module.exports = router;
