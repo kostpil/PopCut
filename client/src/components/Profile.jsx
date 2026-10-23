@@ -465,7 +465,7 @@ const styles = {
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(61, 31, 29, 0.5)',
     display: 'flex',
-    justifyContent: 'center',
+    justifyContent: 'center', 
     alignItems: 'center',
     zIndex: 9999,
     padding: '15px'

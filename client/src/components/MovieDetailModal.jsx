@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; 
 
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'

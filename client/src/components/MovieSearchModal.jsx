@@ -112,7 +112,7 @@ function MovieSearchModal({ onAddWatchedMovie }) {
 
   return (
     <div style={styles.pageWrapper}>
-      <div style={styles.container}>
+      <div style={styles.container}> 
         {!selectedMovie ? (
           <>
             <div style={styles.headerBanner}>

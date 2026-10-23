@@ -117,7 +117,7 @@ const styles = {
   appContainer: {
     flex: 1,
     display: 'flex',
-    flexDirection: 'column',
+    flexDirection: 'column', 
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
