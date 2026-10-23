@@ -110,7 +110,7 @@ function Profile({ user: initialUser, onLogout }) {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <span key={i} style={{ color: i <= rating ? '#B87333' : '#C4A88E', fontSize: '16px', margin: '0 1px' }}>
+        <span key={i} style={{ color: i <= rating ? '#B87333' : '#C4A88E', fontSize: '15px', margin: '0 1px' }}>
           ★
         </span>
       );
@@ -119,9 +119,19 @@ function Profile({ user: initialUser, onLogout }) {
   };
 
   const userAge = user?.age !== undefined && user?.age !== null ? user.age : 'N/A';
+  
+  // Παίρνουμε το πρώτο γράμμα από το όνομα ή το email (π.χ. K)
+  const initialLetter = (user?.firstName || user?.first_name || user?.email || 'U').charAt(0).toUpperCase();
 
   return (
     <div style={styles.container}>
+      {/* AVATAR ΜΕ ΤΟ ΠΡΩΤΟ ΓΡΑΜΜΑ ΣΕ ΚΑΦΕ ΦΟΝΤΟ */}
+      <div style={styles.avatarWrapper}>
+        <div style={styles.avatarCircle}>
+          {initialLetter}
+        </div>
+      </div>
+
       <h2 style={styles.title}>My Profile</h2>
 
       <div style={styles.infoGroup}>
@@ -162,11 +172,11 @@ function Profile({ user: initialUser, onLogout }) {
                           onChange={(e) => setEditRating(e.target.value)}
                           style={styles.editInput}
                         >
-                          <option value="1">1/5</option>
-                          <option value="2">2/5</option>
-                          <option value="3">3/5</option>
-                          <option value="4">4/5</option>
-                          <option value="5">5/5</option>
+                          <option value="1">1 / 5</option>
+                          <option value="2">2 / 5</option>
+                          <option value="3">3 / 5</option>
+                          <option value="4">4 / 5</option>
+                          <option value="5">5 / 5</option>
                         </select>
                       </div>
 
@@ -199,9 +209,8 @@ function Profile({ user: initialUser, onLogout }) {
                         >
                           {m.title}
                         </strong>
-                        <span style={styles.rating}>★ {m.rating}/5</span>
+                        <span style={styles.rating}>{renderStars(m.rating)}</span>
                       </div>
-                      {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
                       <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
 
                       <div style={styles.actionRow}>
@@ -225,6 +234,7 @@ function Profile({ user: initialUser, onLogout }) {
         Logout
       </button>
 
+      {/* MAZEMENO MODAL */}
       {selectedMovie && (
         <div style={styles.modalOverlay} onClick={() => setSelectedMovie(null)}>
           <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
@@ -254,22 +264,15 @@ function Profile({ user: initialUser, onLogout }) {
                 {selectedMovie.overview && (
                   <div style={styles.modalOverviewBox}>
                     <strong>Overview:</strong>
-                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', lineHeight: '1.3' }}>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '11px', lineHeight: '1.3' }}>
                       {selectedMovie.overview}
                     </p>
                   </div>
                 )}
 
-                <div style={styles.modalReviewBox}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <strong style={{ fontSize: '12px' }}>Your Rating:</strong>
-                    <div>{renderStars(selectedMovie.rating)}</div>
-                  </div>
-                  {selectedMovie.review && (
-                    <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic', color: '#4A3228' }}>
-                      "{selectedMovie.review}"
-                    </p>
-                  )}
+                <div style={styles.modalRatingBox}>
+                  <strong style={{ fontSize: '12px' }}>Your Rating:</strong>
+                  <div style={{ marginTop: '2px' }}>{renderStars(selectedMovie.rating)}</div>
                 </div>
               </div>
             </div>
@@ -301,6 +304,25 @@ const styles = {
     boxSizing: 'border-box',
     textAlign: 'left',
     border: '2px solid #ddcfb7'
+  },
+  avatarWrapper: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '10px'
+  },
+  avatarCircle: {
+    width: '85px',
+    height: '85px',
+    borderRadius: '50%',
+    backgroundColor: '#3D1F1D',
+    color: '#FAF0E6',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '36px',
+    fontWeight: 'bold',
+    border: '3px solid #C4A88E',
+    boxShadow: '0 4px 10px rgba(61, 31, 29, 0.2)'
   },
   title: {
     marginTop: 0,
@@ -358,17 +380,12 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     fontSize: '14px',
-    marginBottom: '4px'
+    marginBottom: '4px',
+    alignItems: 'center'
   },
   rating: {
-    color: '#B87333', 
-    fontWeight: 'bold'
-  },
-  reviewText: {
-    margin: '6px 0',
-    fontSize: '13px',
-    color: '#4A3228',
-    fontStyle: 'italic'
+    display: 'flex',
+    alignItems: 'center'
   },
   dateText: {
     fontSize: '11px',
@@ -459,13 +476,12 @@ const styles = {
     cursor: 'pointer',
     fontWeight: 'bold'
   },
-
   modalOverlay: {
     position: 'fixed',
     top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(61, 31, 29, 0.5)',
     display: 'flex',
-    justifyContent: 'center', 
+    justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
     padding: '15px'
@@ -476,7 +492,7 @@ const styles = {
     borderRadius: '14px',
     padding: '20px',
     width: '100%',
-    maxWidth: '460px',
+    maxWidth: '440px',
     position: 'relative',
     color: '#2C1A1D',
     boxShadow: '0 10px 25px rgba(61, 31, 29, 0.2)',
@@ -500,16 +516,16 @@ const styles = {
     alignItems: 'flex-start'
   },
   modalPoster: {
-    width: '110px',
-    height: '160px',
+    width: '100px',
+    height: '145px',
     objectFit: 'cover',
     borderRadius: '8px',
     border: '1px solid #C4A88E',
     flexShrink: 0
   },
   modalPosterPlaceholder: {
-    width: '110px',
-    height: '160px',
+    width: '100px',
+    height: '145px',
     backgroundColor: '#EAD7C5',
     borderRadius: '8px',
     display: 'flex',
@@ -527,41 +543,41 @@ const styles = {
   },
   modalTitle: {
     margin: '0 0 6px 0',
-    fontSize: '16px',
+    fontSize: '15px',
     fontWeight: 'bold',
     color: '#3D1F1D'
   },
   modalMeta: {
     margin: '2px 0',
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#4A3228'
   },
   modalOverviewBox: {
     marginTop: '6px',
     backgroundColor: '#FFFDF9',
-    padding: '6px 8px',
+    padding: '5px 8px',
     borderRadius: '6px',
     border: '1px solid #C4A88E',
-    fontSize: '12px'
+    fontSize: '11px'
   },
-  modalReviewBox: {
-    marginTop: '8px',
+  modalRatingBox: {
+    marginTop: '6px',
     backgroundColor: '#EAD7C5',
-    padding: '6px 8px',
+    padding: '5px 8px',
     borderRadius: '6px',
     border: '1px solid #C4A88E'
   },
   closeModalBtn: {
     width: '100%',
-    marginTop: '15px',
-    padding: '10px',
+    marginTop: '12px',
+    padding: '9px',
     borderRadius: '8px',
     border: 'none',
     backgroundColor: '#3D1F1D',
     color: '#FAF0E6',
     cursor: 'pointer',
     fontWeight: 'bold',
-    fontSize: '14px'
+    fontSize: '13px'
   }
 };
 
