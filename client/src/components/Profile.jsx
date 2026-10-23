@@ -1,220 +1,298 @@
-  import { useState, useEffect } from 'react';
-  import MovieSearchModal from './MovieSearchModal';
+import { useState, useEffect } from 'react';
 
-  const API_BASE_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000'
-    : 'https://moviebook-2-production.up.railway.app';
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000'
+  : 'https://moviebook-2-production.up.railway.app';
 
-  function Profile({ user: initialUser, onLogout }) {
-    const [user, setUser] = useState(initialUser);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [watchedMovies, setWatchedMovies] = useState([]);
+function Profile({ user: initialUser, onLogout }) {
+  const [user, setUser] = useState(initialUser);
+  const [watchedMovies, setWatchedMovies] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [allCatalogMovies, setAllCatalogMovies] = useState([]);
 
-    const [editingMovieId, setEditingMovieId] = useState(null);
-    const [editRating, setEditRating] = useState('5');
-    const [editReview, setEditReview] = useState('');
+  const [editingMovieId, setEditingMovieId] = useState(null);
+  const [editRating, setEditRating] = useState('5');
+  const [editReview, setEditReview] = useState('');
 
-    useEffect(() => {
-      const token = localStorage.getItem('token');
-      
-      if (token) {
-        fetch(`${API_BASE_URL}/api/users/profile`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    
+    if (token) {
+      fetch(`${API_BASE_URL}/api/users/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+        .then((res) => {
+          if (res.status === 401) {
+            throw new Error('Unauthorized - Please log in again.');
+          }
+          if (!res.ok) {
+            throw new Error('Failed to fetch profile');
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (data) {
+            setUser(data);
           }
         })
-          .then((res) => {
-            if (res.status === 401) {
-              throw new Error('Unauthorized - Please log in again.');
-            }
-            if (!res.ok) {
-              throw new Error('Failed to fetch profile');
-            }
-            return res.json();
-          })
-          .then((data) => {
-            if (data) {
-              setUser(data);
-            }
-          })
-          .catch((err) => console.error("Error fetching profile:", err));
+        .catch((err) => console.error("Error fetching profile:", err));
+    }
+
+    fetch(`${API_BASE_URL}/api/movies`)
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => setAllCatalogMovies(data))
+      .catch((err) => console.error("Error fetching catalog movies:", err));
+
+    const saved = localStorage.getItem(`watchedMovies_${initialUser?.email || 'default'}`);
+    if (saved) {
+      try {
+        setWatchedMovies(JSON.parse(saved));
+      } catch (err) {
+        console.error("Failed to parse saved movies", err);
       }
+    }
+  }, []);
 
-      const saved = localStorage.getItem(`watchedMovies_${initialUser?.email || 'default'}`);
-      if (saved) {
-        try {
-          setWatchedMovies(JSON.parse(saved));
-        } catch (err) {
-          console.error("Failed to parse saved movies", err);
-        }
+  const updateAndSaveMovies = (newList) => {
+    setWatchedMovies(newList);
+    localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(newList));
+  };
+
+  const handleDeleteMovie = (id) => {
+    const updated = watchedMovies.filter((m) => m.id !== id);
+    updateAndSaveMovies(updated);
+  };
+
+  const handleStartEdit = (movie) => {
+    setEditingMovieId(movie.id);
+    setEditRating(String(movie.rating));
+    setEditReview(movie.review || '');
+  };
+
+  const handleSaveEdit = (id) => {
+    const updated = watchedMovies.map((m) => {
+      if (m.id === id) {
+        return {
+          ...m,
+          rating: Number(editRating),
+          review: editReview
+        };
       }
-    }, []);
+      return m;
+    });
+    updateAndSaveMovies(updated);
+    setEditingMovieId(null);
+  };
 
-    const initial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
-
-    const updateAndSaveMovies = (newList) => {
-      setWatchedMovies(newList);
-      localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(newList));
-    };
-
-    const handleAddWatchedMovie = (movie) => {
-      const updated = [movie, ...watchedMovies];
-      updateAndSaveMovies(updated);
-    };
-
-    const handleDeleteMovie = (id) => {
-      const updated = watchedMovies.filter((m) => m.id !== id);
-      updateAndSaveMovies(updated);
-    };
-
-    const handleStartEdit = (movie) => {
-      setEditingMovieId(movie.id);
-      setEditRating(String(movie.rating));
-      setEditReview(movie.review || '');
-    };
-
-    const handleSaveEdit = (id) => {
-      const updated = watchedMovies.map((m) => {
-        if (m.id === id) {
-          return {
-            ...m,
-            rating: Number(editRating),
-            review: editReview
-          };
-        }
-        return m;
-      });
-      updateAndSaveMovies(updated);
-      setEditingMovieId(null);
-    };
-
-    const userAge = user?.age !== undefined && user?.age !== null ? user.age : 'N/A';
-
-    return (
-      <div style={styles.container}>
-        <h2 style={styles.title}>My Profile</h2>
-
-        <div style={styles.avatarContainer}>
-          <div style={styles.avatar}>{initial}</div>
-        </div>
-
-        <div style={styles.infoGroup}>
-          <p style={styles.infoText}>
-            <strong>Email:</strong> {user?.email || 'N/A'}
-          </p>
-          <p style={styles.infoText}>
-            <strong>Age:</strong> {userAge}
-          </p>
-          {(user?.firstName || user?.first_name) && (
-            <p style={styles.infoText}>
-              <strong>Name:</strong> {user.firstName || user.first_name} {user.lastName || user.last_name || ''}
-            </p>
-          )}
-        </div>
-
-        <button 
-          onClick={() => setIsSearchOpen(true)} 
-          style={styles.searchBtn}
-        >
-           Search & Rate Movies
-        </button>
-
-        <div style={styles.watchedSection}>
-          <h3 style={styles.subTitle}>My Watched Movies ({watchedMovies.length})</h3>
-          {watchedMovies.length === 0 ? (
-            <p style={styles.emptyText}>No movies logged yet.</p>
-          ) : (
-            <div style={styles.movieList}>
-              {watchedMovies.map((m) => {
-                const isEditing = editingMovieId === m.id;
-
-                return (
-                  <div key={m.id} style={styles.movieItem}>
-                    {isEditing ? (
-                      <div style={styles.editBox}>
-                        <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#646cff' }}>
-                          Edit: {m.title}
-                        </p>
-                        
-                        <div style={styles.fieldGroup}>
-                          <label style={{ fontSize: '12px' }}>Rating:</label>
-                          <select 
-                            value={editRating} 
-                            onChange={(e) => setEditRating(e.target.value)}
-                            style={styles.editInput}
-                          >
-                            <option value="1">⭐ 1/5</option>
-                            <option value="2">⭐⭐ 2/5</option>
-                            <option value="3">⭐⭐⭐ 3/5</option>
-                            <option value="4">⭐⭐⭐⭐ 4/5</option>
-                            <option value="5">⭐⭐⭐⭐⭐ 5/5</option>
-                          </select>
-                        </div>
-
-                        <div style={styles.fieldGroup}>
-                          <label style={{ fontSize: '12px' }}>Review:</label>
-                          <textarea 
-                            value={editReview} 
-                            onChange={(e) => setEditReview(e.target.value)}
-                            style={styles.editTextarea}
-                            rows="2"
-                          />
-                        </div>
-
-                        <div style={styles.actionRow}>
-                          <button onClick={() => handleSaveEdit(m.id)} style={styles.saveBtn}>
-                            Save
-                          </button>
-                          <button onClick={() => setEditingMovieId(null)} style={styles.cancelBtn}>
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div style={styles.movieHeader}>
-                          <strong>{m.title}</strong>
-                          <span style={styles.rating}>⭐ {m.rating}/5</span>
-                        </div>
-                        {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
-                        <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
-
-                        <div style={styles.actionRow}>
-                          <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
-                            Edit
-                          </button>
-                          <button onClick={() => handleDeleteMovie(m.id)} style={styles.deleteBtn}>
-                            Delete
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        <button onClick={onLogout} style={styles.logoutBtn}>
-          Logout
-        </button>
-
-        <MovieSearchModal 
-          isOpen={isSearchOpen} 
-          onClose={() => setIsSearchOpen(false)} 
-          onAddWatchedMovie={handleAddWatchedMovie}
-        />
-      </div>
+  const handleOpenMovieDetail = (watchedMovie) => {
+    const catalogMovie = allCatalogMovies.find(
+      (m) => String(m._id || m.id) === String(watchedMovie.movieId || watchedMovie.id) ||
+             m.title?.toLowerCase() === watchedMovie.title?.toLowerCase()
     );
-  }
 
- const styles = {
+    const fullMovieData = {
+      ...watchedMovie,
+      poster_url: watchedMovie.poster_url || catalogMovie?.poster_url,
+      year: watchedMovie.year || catalogMovie?.year || catalogMovie?.release_year,
+      director: watchedMovie.director || catalogMovie?.director,
+      genre: watchedMovie.genre || catalogMovie?.genre,
+      overview: watchedMovie.overview || catalogMovie?.description || catalogMovie?.overview || catalogMovie?.plot
+    };
+
+    setSelectedMovie(fullMovieData);
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <span key={i} style={{ color: i <= rating ? '#B87333' : '#C4A88E', fontSize: '16px', margin: '0 1px' }}>
+          ★
+        </span>
+      );
+    }
+    return stars;
+  };
+
+  const userAge = user?.age !== undefined && user?.age !== null ? user.age : 'N/A';
+
+  return (
+    <div style={styles.container}>
+      <h2 style={styles.title}>My Profile</h2>
+
+      <div style={styles.infoGroup}>
+        <p style={styles.infoText}>
+          <strong>Email:</strong> {user?.email || 'N/A'}
+        </p>
+        <p style={styles.infoText}>
+          <strong>Age:</strong> {userAge}
+        </p>
+        {(user?.firstName || user?.first_name) && (
+          <p style={styles.infoText}>
+            <strong>Name:</strong> {user.firstName || user.first_name} {user.lastName || user.last_name || ''}
+          </p>
+        )}
+      </div>
+
+      <div style={styles.watchedSection}>
+        <h3 style={styles.subTitle}>My Watched Movies ({watchedMovies.length})</h3>
+        {watchedMovies.length === 0 ? (
+          <p style={styles.emptyText}>No movies logged yet.</p>
+        ) : (
+          <div style={styles.movieList}>
+            {watchedMovies.map((m) => {
+              const isEditing = editingMovieId === m.id;
+
+              return (
+                <div key={m.id} style={styles.movieItem}>
+                  {isEditing ? (
+                    <div style={styles.editBox}>
+                      <p style={{ margin: '0 0 8px 0', fontWeight: 'bold', color: '#3D1F1D' }}>
+                        Edit: {m.title}
+                      </p>
+                      
+                      <div style={styles.fieldGroup}>
+                        <label style={{ fontSize: '12px' }}>Rating:</label>
+                        <select 
+                          value={editRating} 
+                          onChange={(e) => setEditRating(e.target.value)}
+                          style={styles.editInput}
+                        >
+                          <option value="1">1/5</option>
+                          <option value="2">2/5</option>
+                          <option value="3">3/5</option>
+                          <option value="4">4/5</option>
+                          <option value="5">5/5</option>
+                        </select>
+                      </div>
+
+                      <div style={styles.fieldGroup}>
+                        <label style={{ fontSize: '12px' }}>Review:</label>
+                        <textarea 
+                          value={editReview} 
+                          onChange={(e) => setEditReview(e.target.value)}
+                          style={styles.editTextarea}
+                          rows="2"
+                        />
+                      </div>
+
+                      <div style={styles.actionRow}>
+                        <button onClick={() => handleSaveEdit(m.id)} style={styles.saveBtn}>
+                          Save
+                        </button>
+                        <button onClick={() => setEditingMovieId(null)} style={styles.cancelBtn}>
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div style={styles.movieHeader}>
+                        <strong 
+                          style={{ cursor: 'pointer', textDecoration: 'underline', color: '#3D1F1D' }} 
+                          onClick={() => handleOpenMovieDetail(m)}
+                          title="Click to view movie details"
+                        >
+                          {m.title}
+                        </strong>
+                        <span style={styles.rating}>★ {m.rating}/5</span>
+                      </div>
+                      {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
+                      <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
+
+                      <div style={styles.actionRow}>
+                        <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDeleteMovie(m.id)} style={styles.deleteBtn}>
+                          Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <button onClick={onLogout} style={styles.logoutBtn}>
+        Logout
+      </button>
+
+      {selectedMovie && (
+        <div style={styles.modalOverlay} onClick={() => setSelectedMovie(null)}>
+          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <button style={styles.modalCloseBtn} onClick={() => setSelectedMovie(null)}>✕</button>
+            
+            <div style={styles.modalBody}>
+              {selectedMovie.poster_url ? (
+                <img src={selectedMovie.poster_url} alt={selectedMovie.title} style={styles.modalPoster} />
+              ) : (
+                <div style={styles.modalPosterPlaceholder}>No Poster</div>
+              )}
+              
+              <div style={styles.modalInfo}>
+                <h3 style={styles.modalTitle}>
+                  {selectedMovie.title} {selectedMovie.year && <span style={{fontSize: '14px', color: '#5C433E'}}>({selectedMovie.year})</span>}
+                </h3>
+                
+                {selectedMovie.director && (
+                  <p style={styles.modalMeta}><strong>Director:</strong> {selectedMovie.director}</p>
+                )}
+                {selectedMovie.genre && (
+                  <p style={styles.modalMeta}>
+                    <strong>Genre:</strong> {Array.isArray(selectedMovie.genre) ? selectedMovie.genre.join(', ') : selectedMovie.genre}
+                  </p>
+                )}
+
+                {selectedMovie.overview && (
+                  <div style={styles.modalOverviewBox}>
+                    <strong>Overview:</strong>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', lineHeight: '1.3' }}>
+                      {selectedMovie.overview}
+                    </p>
+                  </div>
+                )}
+
+                <div style={styles.modalReviewBox}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <strong style={{ fontSize: '12px' }}>Your Rating:</strong>
+                    <div>{renderStars(selectedMovie.rating)}</div>
+                  </div>
+                  {selectedMovie.review && (
+                    <p style={{ margin: 0, fontSize: '12px', fontStyle: 'italic', color: '#4A3228' }}>
+                      "{selectedMovie.review}"
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <button 
+              type="button" 
+              onClick={() => setSelectedMovie(null)} 
+              style={styles.closeModalBtn}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const styles = {
   container: {
     width: '100%',
     maxWidth: '450px',
+    margin: '20px auto',
     padding: '24px',
     borderRadius: '16px',
     boxShadow: '0 8px 20px rgba(61, 31, 29, 0.12)',
@@ -237,24 +315,6 @@
     color: '#3D1F1D',
     fontWeight: 'bold',
     marginBottom: '10px'
-  },
-  avatarContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    marginBottom: '20px'
-  },
-  avatar: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '50%',
-    backgroundColor: '#3D1F1D', 
-    color: '#FAF0E6',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '26px',
-    fontWeight: 'bold',
-    boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
   },
   infoGroup: {
     display: 'flex',
@@ -313,19 +373,6 @@
   dateText: {
     fontSize: '11px',
     color: '#7A6258'
-  },
-  searchBtn: {
-    width: '100%',
-    padding: '12px',
-    borderRadius: '8px',
-    border: 'none',
-    backgroundColor: '#FAF0E6', 
-    color: '#2C1A1D',
-    fontSize: '15px',
-    fontWeight: 'bold',
-    cursor: 'pointer',
-    marginBottom: '16px',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
   },
   logoutBtn: {
     width: '100%',
@@ -411,7 +458,111 @@
     fontSize: '12px',
     cursor: 'pointer',
     fontWeight: 'bold'
+  },
+
+  modalOverlay: {
+    position: 'fixed',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(61, 31, 29, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    padding: '15px'
+  },
+  modalContent: {
+    backgroundColor: '#FAF0E6',
+    border: '2px solid #C4A88E',
+    borderRadius: '14px',
+    padding: '20px',
+    width: '100%',
+    maxWidth: '460px',
+    position: 'relative',
+    color: '#2C1A1D',
+    boxShadow: '0 10px 25px rgba(61, 31, 29, 0.2)',
+    boxSizing: 'border-box'
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: '10px',
+    right: '12px',
+    background: 'none',
+    border: 'none',
+    fontSize: '18px',
+    cursor: 'pointer',
+    color: '#3D1F1D',
+    fontWeight: 'bold'
+  },
+  modalBody: {
+    display: 'flex',
+    gap: '14px',
+    marginTop: '6px',
+    alignItems: 'flex-start'
+  },
+  modalPoster: {
+    width: '110px',
+    height: '160px',
+    objectFit: 'cover',
+    borderRadius: '8px',
+    border: '1px solid #C4A88E',
+    flexShrink: 0
+  },
+  modalPosterPlaceholder: {
+    width: '110px',
+    height: '160px',
+    backgroundColor: '#EAD7C5',
+    borderRadius: '8px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#7A6258',
+    fontSize: '11px',
+    flexShrink: 0,
+    textAlign: 'center',
+    padding: '5px'
+  },
+  modalInfo: {
+    flex: 1,
+    textAlign: 'left'
+  },
+  modalTitle: {
+    margin: '0 0 6px 0',
+    fontSize: '16px',
+    fontWeight: 'bold',
+    color: '#3D1F1D'
+  },
+  modalMeta: {
+    margin: '2px 0',
+    fontSize: '12px',
+    color: '#4A3228'
+  },
+  modalOverviewBox: {
+    marginTop: '6px',
+    backgroundColor: '#FFFDF9',
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: '1px solid #C4A88E',
+    fontSize: '12px'
+  },
+  modalReviewBox: {
+    marginTop: '8px',
+    backgroundColor: '#EAD7C5',
+    padding: '6px 8px',
+    borderRadius: '6px',
+    border: '1px solid #C4A88E'
+  },
+  closeModalBtn: {
+    width: '100%',
+    marginTop: '15px',
+    padding: '10px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#3D1F1D',
+    color: '#FAF0E6',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    fontSize: '14px'
   }
 };
 
-  export default Profile;
+export default Profile;

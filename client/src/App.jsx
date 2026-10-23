@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Login from './components/Login';
 import Register from './components/Register';
 import Profile from './components/Profile';
+import MovieSearchModal from './components/MovieSearchModal';
 import logo from './assets/popcut.png';
 
 function App() {
@@ -39,6 +40,21 @@ function App() {
     }
   };
 
+  const handleAddWatchedMovie = (newMovie) => {
+    const userEmail = user?.email || 'default';
+    const savedMovies = localStorage.getItem(`watchedMovies_${userEmail}`);
+    let currentMovies = [];
+    if (savedMovies) {
+      try {
+        currentMovies = JSON.parse(savedMovies);
+      } catch (err) {
+        console.error("Failed to parse saved movies", err);
+      }
+    }
+    const updatedMovies = [newMovie, ...currentMovies];
+    localStorage.setItem(`watchedMovies_${userEmail}`, JSON.stringify(updatedMovies));
+  };
+
   return (
     <div style={styles.mainWrapper}>
       <Header 
@@ -49,12 +65,13 @@ function App() {
       />
 
       <div style={styles.appContainer}>
-        <img src={logo} alt="PopCut Logo" style={styles.logo} />
-
-        {user ? (
+        {activeTab === 'search' ? (
+          <MovieSearchModal onAddWatchedMovie={handleAddWatchedMovie} />
+        ) : user ? (
           <Profile user={user} onLogout={handleLogout} />
         ) : isLogin ? (
           <div style={styles.cardWrapper}>
+            <img src={logo} alt="PopCut Logo" style={styles.logo} />
             <Login onLoginSuccess={handleLoginSuccess} />
             <p style={styles.text}>
               Don't have an account?{' '}
@@ -71,6 +88,7 @@ function App() {
           </div>
         ) : (
           <div style={styles.cardWrapper}>
+            <img src={logo} alt="PopCut Logo" style={styles.logo} />
             <Register 
               onSwitchToLogin={() => {
                 setIsLogin(true);
@@ -104,7 +122,7 @@ const styles = {
     alignItems: 'center',
     width: '100%',
     boxSizing: 'border-box',
-    padding: '3px'
+    padding: '20px' 
   },
   logo: {
     width: '350px',           
@@ -112,8 +130,8 @@ const styles = {
     marginTop: '5px',         
     marginBottom: '10px',     
     display: 'block',         
-    marginLeft: '60px',        
-    marginRight: '40px',      
+    marginLeft: 'auto',        
+    marginRight: 'auto',      
     objectFit: 'contain'
   },
   cardWrapper: {
@@ -138,8 +156,8 @@ const styles = {
   },
   footer: {
     marginTop: 'auto',
-    paddingTop: '0px',
-    paddingBottom: '0px',
+    paddingTop: '10px',
+    paddingBottom: '10px',
     textAlign: 'center',
     width: '100%'
   },
