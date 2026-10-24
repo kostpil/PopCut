@@ -27,7 +27,7 @@ exports.logMovie = async (req, res) => {
 
 exports.getUserWatchedMovies = async (req, res) => {
     try {
-        const user_id = req.user.id;
+        const user_id = req.params.userId || req.user.id;
 
         const watchedMovies = await WatchedMovie.find({ user_id })
             .populate('movie_id', 'title year poster_url runtime')
