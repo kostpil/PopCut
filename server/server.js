@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const authRoutes = require('./routes/authRoutes');
 const movieRoutes = require('./routes/movieRoutes');
-const watchedRoutes = require('./routes/watchedRoutes'); 
+const watchedRoutes = require('./routes/watchedRoutes');
+const commentRoutes = require('./routes/commentRoutes');
 const PORT = process.env.PORT || 3000;
 
 const app = express();
@@ -22,6 +23,7 @@ mongoose.connect(DB_URL)
 app.use('/api', authRoutes);
 app.use('/api', movieRoutes);
 app.use('/api', watchedRoutes);
+app.use('/api', commentRoutes);
 
 app.listen(PORT, () => {
     console.log(`Ο server ξεκίνησε στο: http://localhost:${PORT}`);

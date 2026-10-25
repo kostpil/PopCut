@@ -1,6 +1,12 @@
 import logo from '../assets/popcut.png';
 
 function Header({ user, onNavigate, onLogout, activeTab }) {
+  const handleNav = (tab) => {
+    if (onNavigate) {
+      onNavigate(tab);
+    }
+  };
+
   return (
     <>
       <style>
@@ -54,25 +60,25 @@ function Header({ user, onNavigate, onLogout, activeTab }) {
             src={logo} 
             alt="PopCut Logo" 
             style={styles.logo}
-            onClick={() => onNavigate && onNavigate('home')} 
+            onClick={() => handleNav('home')} 
           />
           <div style={styles.navGroup}>
             <button 
-              onClick={() => onNavigate && onNavigate('home')} 
+              onClick={() => handleNav('home')} 
               className={`popcut-nav-btn ${activeTab === 'home' ? 'active' : ''}`}
             >
               Home
             </button>
 
             <button 
-              onClick={() => onNavigate && onNavigate('search')} 
+              onClick={() => handleNav('search')} 
               className={`popcut-nav-btn ${activeTab === 'search' ? 'active' : ''}`}
             >
               Search
             </button>
 
             <button 
-              onClick={() => onNavigate && onNavigate('reviews')} 
+              onClick={() => handleNav('reviews')} 
               className={`popcut-nav-btn ${activeTab === 'reviews' ? 'active' : ''}`}
             >
               Reviews
@@ -84,7 +90,7 @@ function Header({ user, onNavigate, onLogout, activeTab }) {
           {user ? (
             <>
               <button 
-                onClick={() => onNavigate && onNavigate('profile')} 
+                onClick={() => handleNav('profile')} 
                 className={`popcut-nav-btn ${activeTab === 'profile' ? 'active' : ''}`}
               >
                 Profile
@@ -96,13 +102,13 @@ function Header({ user, onNavigate, onLogout, activeTab }) {
           ) : (
             <>
               <button 
-                onClick={() => onNavigate && onNavigate('login')} 
+                onClick={() => handleNav('login')} 
                 className={`popcut-nav-btn ${activeTab === 'login' ? 'active' : ''}`}
               >
                 Log-in
               </button>
               <button 
-                onClick={() => onNavigate && onNavigate('register')} 
+                onClick={() => handleNav('register')} 
                 className={`popcut-nav-btn ${activeTab === 'register' ? 'active' : ''}`}
               >
                 Register

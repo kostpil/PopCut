@@ -64,9 +64,37 @@ function MovieSearchModal({ onAddWatchedMovie }) {
     return matchesTitle && matchesGenre;
   });
 
-  const handleLogSubmit = (e) => {
+  const handleLogSubmit = async (e) => {
     e.preventDefault();
     const movieRealId = selectedMovie._id || selectedMovie.id;
+    const token = localStorage.getItem('token');
+
+    const payload = {
+      movie_id: movieRealId,
+      rating: Number(rating),
+      review: review,
+      watchedAt: new Date()
+    };
+
+    try {
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/watched`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          console.error("Server error saving review:", errData.message);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to post watched movie to server:", err);
+    }
 
     const newWatched = {
       id: Date.now(),
@@ -86,7 +114,7 @@ function MovieSearchModal({ onAddWatchedMovie }) {
       onAddWatchedMovie(newWatched);
     }
 
-    setToastMessage(`"${selectedMovie.title}" added to your reviews!`);
+    setToastMessage(`"${selectedMovie.title}" added to your reviews & community feed!`);
 
     setSelectedMovie(null);
     setReview('');
@@ -117,7 +145,7 @@ function MovieSearchModal({ onAddWatchedMovie }) {
           <>
             <div style={styles.headerBanner}>
               <h1 style={styles.mainTitle}>Explore & Rate Movies</h1>
-              <p style={styles.subTitle}>Discover movies, share your ratings, and build your personal watch history.</p>
+              <p style={styles.subTitle}>Share your ratings and build your personal watch history</p>
               
               <div style={styles.filterBarWrapper}>
                 <input
@@ -401,8 +429,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0,
-    transition: 'opacity 0.2s ease',
-    ':hover': { opacity: 1 }
+    transition: 'opacity 0.2s ease'
   },
   rateBadge: {
     backgroundColor: '#3D1F1D',
@@ -637,7 +664,7 @@ const styles = {
     fontSize: '16px',
     fontWeight: 'bold',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-    zIndex: 9999
+    zindex: 9999
   }
 };
 

@@ -27,7 +27,7 @@ exports.logMovie = async (req, res) => {
 
 exports.getUserWatchedMovies = async (req, res) => {
     try {
-        const user_id = req.user.id;
+        const user_id = req.params.userId || req.user.id;
 
         const watchedMovies = await WatchedMovie.find({ user_id })
             .populate('movie_id', 'title year poster_url runtime')
@@ -36,5 +36,36 @@ exports.getUserWatchedMovies = async (req, res) => {
         res.status(200).json(watchedMovies);
     } catch (error) {
         res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση των ταινιών", error: error.message });
+    }
+};
+
+exports.getAllWatchedMovies = async (req, res) => {
+    try {
+        const feed = await WatchedMovie.find()
+            .populate('user_id', 'email username')
+            .populate('movie_id', 'title year poster_url')
+            .sort({ createdAt: -1 });
+
+        res.status(200).json(feed);
+    } catch (error) {
+        res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση του Community Feed", error: error.message });
+    }
+};
+
+exports.getWatchedMovieById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const watchedMovie = await WatchedMovie.findById(id)
+            .populate('user_id', 'email username')
+            .populate('movie_id');
+
+        if (!watchedMovie) {
+            return res.status(404).json({ message: "Η καταγραφή δεν βρέθηκε!" });
+        }
+
+        res.status(200).json(watchedMovie);
+    } catch (error) {
+        res.status(500).json({ message: "Σφάλμα κατά την ανάκτηση της ταινίας", error: error.message });
     }
 };
