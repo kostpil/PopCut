@@ -40,31 +40,59 @@ function Profile({ user: initialUser, onLogout }) {
           }
         })
         .catch((err) => console.error("Error fetching profile:", err));
+
+      fetch(`${API_BASE_URL}/api/watched`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+        .then((res) => res.ok ? res.json() : [])
+        .then((data) => {
+          if (Array.isArray(data)) {
+            const formatted = data.map(item => ({
+              id: item._id, 
+              movieId: item.movie_id?._id || item.movie_id,
+              title: item.movie_id?.title || 'Unknown Movie',
+              poster_url: item.movie_id?.poster_url,
+              year: item.movie_id?.year,
+              rating: item.rating,
+              review: item.review,
+              watchedAt: item.watchedAt ? new Date(item.watchedAt).toLocaleDateString() : ''
+            }));
+            setWatchedMovies(formatted);
+          }
+        })
+        .catch((err) => console.error("Error fetching watched movies from server:", err));
     }
 
     fetch(`${API_BASE_URL}/api/movies`)
       .then((res) => res.ok ? res.json() : [])
       .then((data) => setAllCatalogMovies(data))
       .catch((err) => console.error("Error fetching catalog movies:", err));
-
-    const saved = localStorage.getItem(`watchedMovies_${initialUser?.email || 'default'}`);
-    if (saved) {
-      try {
-        setWatchedMovies(JSON.parse(saved));
-      } catch (err) {
-        console.error("Failed to parse saved movies", err);
-      }
-    }
   }, []);
 
-  const updateAndSaveMovies = (newList) => {
-    setWatchedMovies(newList);
-    localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(newList));
-  };
+  const handleDeleteMovie = async (movieItem) => {
+    const targetId = movieItem._id || movieItem.id;
+    const token = localStorage.getItem('token');
+    
+    try {
+      if (token && targetId) {
+        await fetch(`${API_BASE_URL}/api/watched/${targetId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+      }
 
-  const handleDeleteMovie = (id) => {
-    const updated = watchedMovies.filter((m) => m.id !== id);
-    updateAndSaveMovies(updated);
+      const updated = watchedMovies.filter((m) => (m._id || m.id) !== targetId);
+      setWatchedMovies(updated);
+      localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(updated));
+    } catch (err) {
+      console.error("Error deleting watched movie:", err);
+    }
   };
 
   const handleStartEdit = (movie) => {
@@ -73,19 +101,23 @@ function Profile({ user: initialUser, onLogout }) {
     setEditReview(movie.review || '');
   };
 
-  const handleSaveEdit = (id) => {
-    const updated = watchedMovies.map((m) => {
-      if (m.id === id) {
-        return {
-          ...m,
-          rating: Number(editRating),
-          review: editReview
-        };
-      }
-      return m;
-    });
-    updateAndSaveMovies(updated);
-    setEditingMovieId(null);
+  const handleSaveEdit = async (id) => {
+    try {
+      const updated = watchedMovies.map((m) => {
+        if (m.id === id) {
+          return {
+            ...m,
+            rating: Number(editRating),
+            review: editReview
+          };
+        }
+        return m;
+      });
+      setWatchedMovies(updated);
+      setEditingMovieId(null);
+    } catch (err) {
+      console.error("Error updating review:", err);
+    }
   };
 
   const handleOpenMovieDetail = (watchedMovie) => {
@@ -215,7 +247,7 @@ function Profile({ user: initialUser, onLogout }) {
                         <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
                           Edit
                         </button>
-                        <button onClick={() => handleDeleteMovie(m.id)} style={styles.deleteBtn}>
+                        <button onClick={() => handleDeleteMovie(m)} style={styles.deleteBtn}>
                           Delete
                         </button>
                       </div>

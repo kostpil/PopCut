@@ -4,6 +4,7 @@ import Login from './components/Login';
 import Register from './components/Register';
 import Profile from './components/Profile';
 import MovieSearchModal from './components/MovieSearchModal';
+import ReviewsFeed from './components/ReviewsFeed'; 
 import logo from './assets/popcut.png';
 
 function App() {
@@ -67,6 +68,14 @@ function App() {
       <div style={styles.appContainer}>
         {activeTab === 'search' ? (
           <MovieSearchModal onAddWatchedMovie={handleAddWatchedMovie} />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsFeed onNavigateToSearch={() => handleNavigate('search')} />
+        ) : activeTab === 'home' ? (
+          <div style={styles.cardWrapper}>
+            <img src={logo} alt="PopCut Logo" style={styles.logo} />
+            <h2 style={{ color: '#3D1F1D', marginBottom: '8px' }}>Welcome to PopCut</h2>
+            <p style={styles.text}>Your ultimate companion to log, rate, and share your favorite movies with the community.</p>
+          </div>
         ) : user ? (
           <Profile user={user} onLogout={handleLogout} />
         ) : isLogin ? (
@@ -136,7 +145,7 @@ const styles = {
   },
   cardWrapper: {
     width: '100%',
-    maxWidth: '400px',
+    maxWidth: '450px',
     textAlign: 'center'
   },
   text: {
