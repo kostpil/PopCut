@@ -4,60 +4,182 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
   : 'https://moviebook-2-production.up.railway.app';
 
-function ReviewsFeed({ onNavigateToSearch }) {
+function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
   const [feedItems, setFeedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  
+  const [activeItem, setActiveItem] = useState(null);
+  const [commentsList, setCommentsList] = useState([]);
+  const [commentInput, setCommentInput] = useState('');
+  const [loadingComments, setLoadingComments] = useState(false);
+  const [countsMap, setCountsMap] = useState({});
+
   const itemsPerPage = 6; 
 
-  const fetchFeed = () => {
+  const fetchFeed = async () => {
     setLoading(true);
-    fetch(`${API_BASE_URL}/api/watched/feed`)
-      .then((res) => {
-        if (!res.ok) {
-          return fetch(`${API_BASE_URL}/api/feed`).then(r => r.ok ? r.json() : []);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/watched/feed`);
+      let data = [];
+      if (res.ok) {
+        data = await res.json();
+      } else {
+        const resFallback = await fetch(`${API_BASE_URL}/api/feed`);
+        if (resFallback.ok) {
+          data = await resFallback.json();
         }
-        return res.json();
-      })
-      .then((data) => {
-        setFeedItems(Array.isArray(data) ? data : []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching community feed:", err);
-        setLoading(false);
+      }
+
+      let items = Array.isArray(data) ? data : [];
+
+      const savedUser = localStorage.getItem('user');
+      const userObj = savedUser ? JSON.parse(savedUser) : null;
+      const userEmail = userObj?.email || userObj?.username || 'default';
+
+      const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+      const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+
+      items = items
+        .filter(item => !deletedIds.includes(item._id || item.id))
+        .map(item => {
+          const id = item._id || item.id;
+          if (localEdits[id]) {
+            return {
+              ...item,
+              rating: localEdits[id].rating !== undefined ? localEdits[id].rating : item.rating,
+              review: localEdits[id].review !== undefined ? localEdits[id].review : item.review
+            };
+          }
+          return item;
+        });
+
+      setFeedItems(items);
+      setLoading(false);
+
+      items.forEach(item => {
+        const id = item._id || item.id;
+        fetch(`${API_BASE_URL}/api/watched/${id}/comments`)
+          .then(r => r.ok ? r.json() : [])
+          .then(comments => {
+            const len = Array.isArray(comments) ? comments.length : 0;
+            setCountsMap(prev => ({ ...prev, [id]: len }));
+          })
+          .catch(() => {});
       });
+    } catch (err) {
+      console.error("Error fetching community feed:", err);
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchFeed();
     const handleFocus = () => fetchFeed();
+    const handleUpdate = () => fetchFeed();
+
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    window.addEventListener('watched_updated', handleUpdate);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('watched_updated', handleUpdate);
+    };
   }, []);
 
+  const fetchComments = async (watchedId) => {
+    setLoadingComments(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/watched/${watchedId}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : [];
+        setCommentsList(list);
+        setCountsMap(prev => ({ ...prev, [watchedId]: list.length }));
+        setLoadingComments(false);
+        return list;
+      }
+    } catch (err) {
+      console.error("Error fetching comments:", err);
+    }
+    setLoadingComments(false);
+    return [];
+  };
+
+  const openCommentsModal = async (item) => {
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (!token || !savedUser) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    setActiveItem(item);
+    setCommentInput('');
+    const watchedId = item._id || item.id;
+    await fetchComments(watchedId);
+  };
+
+  const closeCommentsModal = () => {
+    setActiveItem(null);
+    setCommentsList([]);
+    setCommentInput('');
+  };
+
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (!token || !savedUser) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    const text = commentInput.trim();
+    if (!text) return;
+
+    const watchedId = activeItem._id || activeItem.id;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/watched/${watchedId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ comment: text })
+      });
+
+      if (res.ok) {
+        setCommentInput('');
+        await fetchComments(watchedId);
+      }
+    } catch (err) {
+      console.error("Error posting comment:", err);
+    }
+  };
+
+  const handleAddReviewClick = () => {
+    const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+    if (!token || !savedUser) {
+      setShowAuthModal(true);
+      return;
+    }
+    if (onNavigateToSearch) onNavigateToSearch();
+  };
+
   const totalPages = Math.ceil(feedItems.length / itemsPerPage);
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = feedItems.slice(indexOfFirstItem, indexOfLastItem);
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
+  const currentItems = feedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const renderStars = (rating) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
-        <span key={i} style={{ color: i <= rating ? '#B87333' : '#C4A88E', fontSize: '15px', margin: '0 1px' }}>
+        <span key={i} style={{ color: i <= rating ? '#B87333' : '#C4A88E', fontSize: '15px' }}>
           ★
         </span>
       );
@@ -68,17 +190,14 @@ function ReviewsFeed({ onNavigateToSearch }) {
   const formatDateTime = (dateString) => {
     if (!dateString) return '';
     const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '';
-    const dateFormatted = d.toLocaleDateString();
-    const timeFormatted = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    return `${dateFormatted} • ${timeFormatted}`;
+    return isNaN(d.getTime()) ? '' : `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
   };
 
   return (
     <div style={styles.container}>
       <div style={styles.headerRow}>
         <h2 style={styles.title}>Community Feed</h2>
-        <button onClick={onNavigateToSearch} style={styles.addReviewBtn}>
+        <button onClick={handleAddReviewClick} style={styles.addReviewBtn}>
           + Add Review
         </button>
       </div>
@@ -91,12 +210,13 @@ function ReviewsFeed({ onNavigateToSearch }) {
         <>
           <div style={styles.feedGrid}>
             {currentItems.map((item) => {
+              const watchedId = item._id || item.id;
               const userEmail = item.user_id?.email || item.user_id?.username || 'Anonymous';
-              const initialLetter = userEmail.charAt(0).toUpperCase();
               const movie = item.movie_id || {};
+              const commentCount = countsMap[watchedId] !== undefined ? countsMap[watchedId] : (item.commentsCount || 0);
 
               return (
-                <div key={item._id || item.id} style={styles.card}>
+                <div key={watchedId} style={styles.card}>
                   <div style={styles.posterWrapper}>
                     {movie.poster_url ? (
                       <img src={movie.poster_url} alt={movie.title} style={styles.posterImg} />
@@ -107,28 +227,25 @@ function ReviewsFeed({ onNavigateToSearch }) {
 
                   <div style={styles.cardContent}>
                     <div style={styles.userRow}>
-                      <div style={styles.avatarCircle}>{initialLetter}</div>
+                      <div style={styles.avatarCircle}>{userEmail.charAt(0).toUpperCase()}</div>
                       <div style={styles.userMeta}>
                         <span style={styles.userEmail} title={userEmail}>{userEmail}</span>
-                        <small style={styles.dateText}>
-                          {formatDateTime(item.watchedAt || item.createdAt)}
-                        </small>
+                        <small style={styles.dateText}>{formatDateTime(item.watchedAt || item.createdAt)}</small>
                       </div>
                     </div>
 
                     <div style={styles.movieHeader}>
-                      <span style={styles.movieTitle} title={movie.title}>
+                      <span style={styles.movieTitle}>
                         {movie.title || 'Unknown Movie'} {movie.year ? `(${movie.year})` : ''}
                       </span>
                     </div>
 
-                    <div style={styles.ratingBox}>
-                      {renderStars(item.rating)}
-                    </div>
+                    <div style={styles.ratingBox}>{renderStars(item.rating)}</div>
+                    {item.review && <p style={styles.reviewText}>"{item.review}"</p>}
 
-                    {item.review && (
-                      <p style={styles.reviewText}>"{item.review}"</p>
-                    )}
+                    <button onClick={() => openCommentsModal(item)} style={styles.commentsToggleBtn}>
+                      💬 Comments ({commentCount})
+                    </button>
                   </div>
                 </div>
               );
@@ -138,25 +255,132 @@ function ReviewsFeed({ onNavigateToSearch }) {
           {totalPages > 1 && (
             <div style={styles.paginationRow}>
               <button 
-                onClick={handlePrevPage} 
-                disabled={currentPage === 1}
-                style={{ ...styles.pageBtn, opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
+                disabled={currentPage === 1} 
+                style={styles.pageBtn}
               >
                 ← Prev
               </button>
-              <span style={styles.pageInfo}>
-                Page {currentPage} of {totalPages}
-              </span>
+              <span style={styles.pageInfo}>Page {currentPage} of {totalPages}</span>
               <button 
-                onClick={handleNextPage} 
-                disabled={currentPage === totalPages}
-                style={{ ...styles.pageBtn, opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
+                disabled={currentPage === totalPages} 
+                style={styles.pageBtn}
               >
                 Next →
               </button>
             </div>
           )}
         </>
+      )}
+
+      {activeItem && (() => {
+        const movie = activeItem.movie_id || {};
+        const userEmail = activeItem.user_id?.email || activeItem.user_id?.username || 'Anonymous';
+
+        return (
+          <div style={styles.modalOverlay}>
+            <div style={styles.commentModalContent}>
+              <div style={styles.modalHeaderRow}>
+                <h3 style={styles.modalHeading}>Discussion & Comments</h3>
+                <button onClick={closeCommentsModal} style={styles.modalCloseX}>×</button>
+              </div>
+
+              <div style={styles.modalReviewCard}>
+                <div style={styles.posterWrapper}>
+                  {movie.poster_url ? (
+                    <img src={movie.poster_url} alt={movie.title} style={styles.posterImg} />
+                  ) : (
+                    <div style={styles.posterPlaceholder}>No Poster</div>
+                  )}
+                </div>
+                <div style={styles.cardContent}>
+                  <div style={styles.userRow}>
+                    <div style={styles.avatarCircle}>{userEmail.charAt(0).toUpperCase()}</div>
+                    <div style={styles.userMeta}>
+                      <span style={styles.userEmail} title={userEmail}>{userEmail}</span>
+                      <small style={styles.dateText}>{formatDateTime(activeItem.watchedAt || activeItem.createdAt)}</small>
+                    </div>
+                  </div>
+                  <div style={styles.movieHeader}>
+                    <span style={styles.movieTitle}>
+                      {movie.title || 'Unknown Movie'} {movie.year ? `(${movie.year})` : ''}
+                    </span>
+                  </div>
+                  <div style={styles.ratingBox}>{renderStars(activeItem.rating)}</div>
+                  {activeItem.review && <p style={styles.reviewText}>"{activeItem.review}"</p>}
+                </div>
+              </div>
+
+              <div style={styles.modalCommentsSection}>
+                {loadingComments ? (
+                  <p style={styles.commentStatus}>Loading comments...</p>
+                ) : commentsList.length === 0 ? (
+                  <p style={styles.commentStatus}>No comments yet. Be the first to reply!</p>
+                ) : (
+                  <div style={styles.commentsList}>
+                    {commentsList.map((c, idx) => (
+                      <div key={idx} style={styles.commentItem}>
+                        <strong style={styles.commenterName}>
+                          {c.commenter_id?.email || c.commenter_id?.username || 'User'}:
+                        </strong>
+                        <span style={styles.commentText}>{c.comment}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <form onSubmit={handleAddComment} style={styles.commentForm}>
+                  <input
+                    type="text"
+                    placeholder="Write a comment..."
+                    value={commentInput}
+                    onChange={(e) => setCommentInput(e.target.value)}
+                    style={styles.commentInput}
+                  />
+                  <button type="submit" style={styles.commentSubmitBtn}>Post</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {showAuthModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h3 style={styles.modalTitle}>Authentication Required</h3>
+            <p style={styles.modalText}>
+              You need to have an account for this action. Please log in or register!
+            </p>
+            <div style={styles.modalBtnGroup}>
+              <button 
+                onClick={() => {
+                  setShowAuthModal(false);
+                  if (onNavigateToAuth) onNavigateToAuth('login');
+                }} 
+                style={styles.modalLoginBtn}
+              >
+                Log-in
+              </button>
+              <button 
+                onClick={() => {
+                  setShowAuthModal(false);
+                  if (onNavigateToAuth) onNavigateToAuth('register');
+                }} 
+                style={styles.modalRegisterBtn}
+              >
+                Register
+              </button>
+              <button 
+                onClick={() => setShowAuthModal(false)} 
+                style={styles.modalCloseBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -226,7 +450,7 @@ const styles = {
     display: 'flex',
     flexDirection: 'row',
     gap: '14px',
-    alignItems: 'flex-start', 
+    alignItems: 'flex-start',
     boxShadow: '0 3px 10px rgba(61, 31, 29, 0.06)',
     boxSizing: 'border-box'
   },
@@ -268,11 +492,11 @@ const styles = {
   },
   userRow: {
     display: 'flex',
-    alignItems: 'flex-start',  
+    alignItems: 'flex-start',
     gap: '8px'
   },
   avatarCircle: {
-    width: '26px', 
+    width: '26px',
     height: '26px',
     borderRadius: '50%',
     backgroundColor: '#3D1F1D',
@@ -283,7 +507,7 @@ const styles = {
     fontSize: '11px',
     fontWeight: 'bold',
     flexShrink: 0,
-    marginTop: '1px' 
+    marginTop: '1px'
   },
   userMeta: {
     display: 'flex',
@@ -331,6 +555,18 @@ const styles = {
     WebkitBoxOrient: 'vertical',
     overflow: 'hidden'
   },
+  commentsToggleBtn: {
+    marginTop: '6px',
+    background: 'none',
+    border: '1px solid #C4A88E',
+    borderRadius: '6px',
+    padding: '4px 10px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    color: '#3D1F1D',
+    cursor: 'pointer',
+    alignSelf: 'flex-start'
+  },
   paginationRow: {
     display: 'flex',
     justifyContent: 'space-between',
@@ -352,6 +588,177 @@ const styles = {
     fontSize: '14px',
     fontWeight: 'bold',
     color: '#3D1F1D'
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backdropFilter: 'blur(4px)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10000
+  },
+  commentModalContent: {
+    backgroundColor: '#FAF0E6',
+    padding: '25px',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '550px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    border: '2px solid #C4A88E',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+    boxSizing: 'border-box'
+  },
+  modalHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '15px'
+  },
+  modalHeading: {
+    margin: 0,
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#3D1F1D'
+  },
+  modalCloseX: {
+    background: 'none',
+    border: 'none',
+    fontSize: '22px',
+    fontWeight: 'bold',
+    color: '#3D1F1D',
+    cursor: 'pointer'
+  },
+  modalReviewCard: {
+    backgroundColor: '#FFFDF9',
+    borderRadius: '12px',
+    padding: '12px',
+    border: '1px solid #D8C0A8',
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '12px',
+    marginBottom: '15px'
+  },
+  modalCommentsSection: {
+    backgroundColor: '#FFFDF9',
+    border: '1px solid #D8C0A8',
+    borderRadius: '12px',
+    padding: '15px'
+  },
+  commentStatus: {
+    fontSize: '13px',
+    color: '#7A6258',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    margin: '10px 0'
+  },
+  commentsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    maxHeight: '200px',
+    overflowY: 'auto',
+    marginBottom: '15px'
+  },
+  commentItem: {
+    fontSize: '13px',
+    color: '#2C1A1D',
+    backgroundColor: '#FAF0E6',
+    padding: '8px 10px',
+    borderRadius: '8px'
+  },
+  commenterName: {
+    color: '#3D1F1D',
+    marginRight: '6px'
+  },
+  commentText: {
+    color: '#4A3228'
+  },
+  commentForm: {
+    display: 'flex',
+    gap: '8px'
+  },
+  commentInput: {
+    flex: 1,
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: '1px solid #C4A88E',
+    backgroundColor: '#FFFDF9',
+    color: '#2C1A1D',
+    fontSize: '13px',
+    outline: 'none'
+  },
+  commentSubmitBtn: {
+    padding: '10px 16px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#3D1F1D',
+    color: '#FAF0E6',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  },
+  modalContent: {
+    backgroundColor: '#FAF0E6',
+    padding: '30px',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '400px',
+    textAlign: 'center',
+    border: '2px solid #C4A88E',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)'
+  },
+  modalTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#3D1F1D',
+    margin: '0 0 12px 0'
+  },
+  modalText: {
+    fontSize: '14px',
+    color: '#5C433E',
+    lineHeight: '1.5',
+    marginBottom: '20px'
+  },
+  modalBtnGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  modalLoginBtn: {
+    padding: '12px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#3D1F1D',
+    color: '#FAF0E6',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  },
+  modalRegisterBtn: {
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #3D1F1D',
+    backgroundColor: '#FFFDF9',
+    color: '#3D1F1D',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  },
+  modalCloseBtn: {
+    padding: '10px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: '#7A6258',
+    fontSize: '13px',
+    cursor: 'pointer',
+    marginTop: '5px'
   }
 };
 

@@ -16,6 +16,7 @@ function Profile({ user: initialUser, onLogout }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const userEmail = user?.email || 'default';
     
     if (token) {
       fetch(`${API_BASE_URL}/api/users/profile`, {
@@ -51,16 +52,26 @@ function Profile({ user: initialUser, onLogout }) {
         .then((res) => res.ok ? res.json() : [])
         .then((data) => {
           if (Array.isArray(data)) {
-            const formatted = data.map(item => ({
-              id: item._id, 
-              movieId: item.movie_id?._id || item.movie_id,
-              title: item.movie_id?.title || 'Unknown Movie',
-              poster_url: item.movie_id?.poster_url,
-              year: item.movie_id?.year,
-              rating: item.rating,
-              review: item.review,
-              watchedAt: item.watchedAt ? new Date(item.watchedAt).toLocaleDateString() : ''
-            }));
+            const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+            const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+
+            const formatted = data
+              .filter(item => !deletedIds.includes(item._id))
+              .map(item => {
+                const itemId = item._id;
+                const savedEdit = localEdits[itemId] || {};
+
+                return {
+                  id: itemId, 
+                  movieId: item.movie_id?._id || item.movie_id,
+                  title: item.movie_id?.title || 'Unknown Movie',
+                  poster_url: item.movie_id?.poster_url,
+                  year: item.movie_id?.year,
+                  rating: savedEdit.rating !== undefined ? savedEdit.rating : item.rating,
+                  review: savedEdit.review !== undefined ? savedEdit.review : item.review,
+                  watchedAt: item.watchedAt ? new Date(item.watchedAt).toLocaleDateString() : ''
+                };
+              });
             setWatchedMovies(formatted);
           }
         })
@@ -76,6 +87,7 @@ function Profile({ user: initialUser, onLogout }) {
   const handleDeleteMovie = async (movieItem) => {
     const targetId = movieItem._id || movieItem.id;
     const token = localStorage.getItem('token');
+    const userEmail = user?.email || 'default';
     
     try {
       if (token && targetId) {
@@ -86,13 +98,24 @@ function Profile({ user: initialUser, onLogout }) {
           }
         });
       }
-
-      const updated = watchedMovies.filter((m) => (m._id || m.id) !== targetId);
-      setWatchedMovies(updated);
-      localStorage.setItem(`watchedMovies_${user?.email || 'default'}`, JSON.stringify(updated));
     } catch (err) {
-      console.error("Error deleting watched movie:", err);
+      console.error("Server delete failed, handling locally:", err);
     }
+
+    const updated = watchedMovies.filter((m) => (m._id || m.id) !== targetId);
+    setWatchedMovies(updated);
+
+    const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+    delete localEdits[targetId];
+    localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
+
+    const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+    if (!deletedIds.includes(targetId)) {
+      deletedIds.push(targetId);
+      localStorage.setItem(`watchedDeletes_${userEmail}`, JSON.stringify(deletedIds));
+    }
+
+    window.dispatchEvent(new Event('watched_updated'));
   };
 
   const handleStartEdit = (movie) => {
@@ -102,22 +125,46 @@ function Profile({ user: initialUser, onLogout }) {
   };
 
   const handleSaveEdit = async (id) => {
+    const token = localStorage.getItem('token');
+    const userEmail = user?.email || 'default';
+    const newRatingNum = Number(editRating);
+
     try {
-      const updated = watchedMovies.map((m) => {
-        if (m.id === id) {
-          return {
-            ...m,
-            rating: Number(editRating),
+      if (token) {
+        await fetch(`${API_BASE_URL}/api/watched/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            rating: newRatingNum,
             review: editReview
-          };
-        }
-        return m;
-      });
-      setWatchedMovies(updated);
-      setEditingMovieId(null);
+          })
+        });
+      }
     } catch (err) {
-      console.error("Error updating review:", err);
+      console.error("Server update failed, falling back to local storage:", err);
     }
+
+    const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+    localEdits[id] = { rating: newRatingNum, review: editReview };
+    localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
+
+    const updated = watchedMovies.map((m) => {
+      if (m.id === id) {
+        return {
+          ...m,
+          rating: newRatingNum,
+          review: editReview
+        };
+      }
+      return m;
+    });
+    setWatchedMovies(updated);
+    setEditingMovieId(null);
+
+    window.dispatchEvent(new Event('watched_updated'));
   };
 
   const handleOpenMovieDetail = (watchedMovie) => {

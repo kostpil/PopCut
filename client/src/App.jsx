@@ -5,6 +5,7 @@ import Register from './components/Register';
 import Profile from './components/Profile';
 import MovieSearchModal from './components/MovieSearchModal';
 import ReviewsFeed from './components/ReviewsFeed'; 
+import HomePage from './components/HomePage'; 
 import logo from './assets/popcut.png';
 
 function App() {
@@ -28,17 +29,22 @@ function App() {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setIsLogin(true);
     setActiveTab('login');
   };
 
   const handleNavigate = (tab) => {
     setActiveTab(tab);
-    if (tab === 'login') {
-      setIsLogin(true);
-    } else if (tab === 'register') {
-      setIsLogin(false);
-    }
+    if (tab === 'login') setIsLogin(true);
+    if (tab === 'register') setIsLogin(false);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const handleNavigateToAuth = (type) => {
+    setActiveTab(type);
+    setIsLogin(type === 'login');
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   const handleAddWatchedMovie = (newMovie) => {
@@ -46,11 +52,7 @@ function App() {
     const savedMovies = localStorage.getItem(`watchedMovies_${userEmail}`);
     let currentMovies = [];
     if (savedMovies) {
-      try {
-        currentMovies = JSON.parse(savedMovies);
-      } catch (err) {
-        console.error("Failed to parse saved movies", err);
-      }
+      try { currentMovies = JSON.parse(savedMovies); } catch (err) { console.error(err); }
     }
     const updatedMovies = [newMovie, ...currentMovies];
     localStorage.setItem(`watchedMovies_${userEmail}`, JSON.stringify(updatedMovies));
@@ -67,45 +69,36 @@ function App() {
 
       <div style={styles.appContainer}>
         {activeTab === 'search' ? (
-          <MovieSearchModal onAddWatchedMovie={handleAddWatchedMovie} />
+          <MovieSearchModal 
+            onAddWatchedMovie={handleAddWatchedMovie} 
+            onNavigateToAuth={handleNavigateToAuth} 
+          />
         ) : activeTab === 'reviews' ? (
-          <ReviewsFeed onNavigateToSearch={() => handleNavigate('search')} />
+          <ReviewsFeed 
+            onNavigateToSearch={() => handleNavigate('search')} 
+            onNavigateToAuth={handleNavigateToAuth} 
+          />
         ) : activeTab === 'home' ? (
-          <div style={styles.cardWrapper}>
-            <img src={logo} alt="PopCut Logo" style={styles.logo} />
-            <h2 style={{ color: '#3D1F1D', marginBottom: '8px' }}>Welcome to PopCut</h2>
-            <p style={styles.text}>Your ultimate companion to log, rate, and share your favorite movies with the community.</p>
-          </div>
-        ) : user ? (
+          <HomePage /> 
+        ) : activeTab === 'profile' && user ? (
           <Profile user={user} onLogout={handleLogout} />
-        ) : isLogin ? (
+        ) : activeTab === 'login' ? (
           <div style={styles.cardWrapper}>
-            <img src={logo} alt="PopCut Logo" style={styles.logo} />
+            <img src={logo} alt="PopCut Logo" style={styles.logoAuth} />
             <Login onLoginSuccess={handleLoginSuccess} />
             <p style={styles.text}>
               Don't have an account?{' '}
-              <button 
-                onClick={() => {
-                  setIsLogin(false);
-                  setActiveTab('register');
-                }} 
-                style={styles.toggleBtn}
-              >
+              <button onClick={() => handleNavigateToAuth('register')} style={styles.toggleBtn}>
                 Register
               </button>
             </p>
           </div>
-        ) : (
+        ) : activeTab === 'register' ? (
           <div style={styles.cardWrapper}>
-            <img src={logo} alt="PopCut Logo" style={styles.logo} />
-            <Register 
-              onSwitchToLogin={() => {
-                setIsLogin(true);
-                setActiveTab('login');
-              }} 
-            />
+            <img src={logo} alt="PopCut Logo" style={styles.logoAuth} />
+            <Register onSwitchToLogin={() => handleNavigateToAuth('login')} />
           </div>
-        )}
+        ) : null}
 
         <footer style={styles.footer}>
           <p style={styles.footerText}>© Built by Haralambos Ktenidis & Kostas Pilateris | PopCut 2026</p>
@@ -131,13 +124,15 @@ const styles = {
     alignItems: 'center',
     width: '100%',
     boxSizing: 'border-box',
-    padding: '20px' 
+    padding: '20px 0', 
+    overflowX: 'hidden' 
   },
-  logo: {
-    width: '350px',           
+  
+  logoAuth: {
+    width: '260px',           
     height: 'auto',
     marginTop: '5px',         
-    marginBottom: '10px',     
+    marginBottom: '10px',    
     display: 'block',         
     marginLeft: 'auto',        
     marginRight: 'auto',      
@@ -165,14 +160,14 @@ const styles = {
   },
   footer: {
     marginTop: 'auto',
-    paddingTop: '10px',
+    paddingTop: '20px',
     paddingBottom: '10px',
     textAlign: 'center',
     width: '100%'
   },
   footerText: {
     margin: 0,
-    color: '#2C1A1D',
+    color: '#7A6258',
     fontSize: '13px'
   }
 };

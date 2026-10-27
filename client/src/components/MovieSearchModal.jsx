@@ -4,7 +4,7 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
   : 'https://moviebook-2-production.up.railway.app';
 
-function MovieSearchModal({ onAddWatchedMovie }) {
+function MovieSearchModal({ onAddWatchedMovie, onNavigateToAuth }) {
   const [movies, setMovies] = useState([]); 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -14,6 +14,7 @@ function MovieSearchModal({ onAddWatchedMovie }) {
   const [rating, setRating] = useState('5');
   const [review, setReview] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     setSelectedMovie(null);
@@ -21,6 +22,7 @@ function MovieSearchModal({ onAddWatchedMovie }) {
     setSelectedGenre('All');
     setReview('');
     setRating('5');
+    setShowAuthModal(false);
     
     setLoading(true);
     setError(null);
@@ -66,8 +68,17 @@ function MovieSearchModal({ onAddWatchedMovie }) {
 
   const handleLogSubmit = async (e) => {
     e.preventDefault();
-    const movieRealId = selectedMovie._id || selectedMovie.id;
+
     const token = localStorage.getItem('token');
+    const savedUser = localStorage.getItem('user');
+
+    if (!token || !savedUser) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    const movieRealId = selectedMovie._id || selectedMovie.id;
+    const uniqueId = 'item_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
 
     const payload = {
       movie_id: movieRealId,
@@ -77,27 +88,25 @@ function MovieSearchModal({ onAddWatchedMovie }) {
     };
 
     try {
-      if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/watched`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-          const errData = await response.json();
-          console.error("Server error saving review:", errData.message);
-        }
-      }
+      await fetch(`${API_BASE_URL}/api/watched`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
     } catch (err) {
       console.error("Failed to post watched movie to server:", err);
     }
 
+    const userObj = JSON.parse(savedUser);
+    const userEmail = userObj?.email || userObj?.username || 'default';
+
     const newWatched = {
-      id: Date.now(),
+      _id: uniqueId,
+      id: uniqueId,
+      movie_id: selectedMovie,
       movieId: movieRealId,
       title: selectedMovie.title,
       poster_url: selectedMovie.poster_url,
@@ -107,12 +116,22 @@ function MovieSearchModal({ onAddWatchedMovie }) {
       genre: selectedMovie.genre,
       director: selectedMovie.director,
       overview: selectedMovie.description || selectedMovie.overview || selectedMovie.plot,
-      watchedAt: new Date().toLocaleDateString()
+      watchedAt: new Date().toISOString(),
+      user_id: userObj
     };
+
+    const existingWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
+    const updatedWatched = [newWatched, ...existingWatched];
+    localStorage.setItem(`watched_${userEmail}`, JSON.stringify(updatedWatched));
+
+    const globalFeed = JSON.parse(localStorage.getItem('global_community_feed') || '[]');
+    localStorage.setItem('global_community_feed', JSON.stringify([newWatched, ...globalFeed]));
 
     if (onAddWatchedMovie) {
       onAddWatchedMovie(newWatched);
     }
+
+    window.dispatchEvent(new Event('watched_updated'));
 
     setToastMessage(`"${selectedMovie.title}" added to your reviews & community feed!`);
 
@@ -313,6 +332,43 @@ function MovieSearchModal({ onAddWatchedMovie }) {
         )}
       </div>
 
+      {showAuthModal && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h3 style={styles.modalTitle}>Authentication Required</h3>
+            <p style={styles.modalText}>
+              You need to have an account for this action. Please log in or register!
+            </p>
+            <div style={styles.modalBtnGroup}>
+              <button 
+                onClick={() => {
+                  setShowAuthModal(false);
+                  if (onNavigateToAuth) onNavigateToAuth('login');
+                }} 
+                style={styles.modalLoginBtn}
+              >
+                Log-in
+              </button>
+              <button 
+                onClick={() => {
+                  setShowAuthModal(false);
+                  if (onNavigateToAuth) onNavigateToAuth('register');
+                }} 
+                style={styles.modalRegisterBtn}
+              >
+                Register
+              </button>
+              <button 
+                onClick={() => setShowAuthModal(false)} 
+                style={styles.modalCloseBtn}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toastMessage && (
         <div style={styles.toast}>
           ✓ {toastMessage}
@@ -423,7 +479,10 @@ const styles = {
   },
   hoverOverlay: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(61, 31, 29, 0.4)',
     display: 'flex',
     alignItems: 'center',
@@ -664,7 +723,76 @@ const styles = {
     fontSize: '16px',
     fontWeight: 'bold',
     boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-    zindex: 9999
+    zIndex: 9999
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10000
+  },
+  modalContent: {
+    backgroundColor: '#FAF0E6',
+    padding: '30px',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '400px',
+    textAlign: 'center',
+    border: '2px solid #C4A88E',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)'
+  },
+  modalTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#3D1F1D',
+    margin: '0 0 12px 0'
+  },
+  modalText: {
+    fontSize: '14px',
+    color: '#5C433E',
+    lineHeight: '1.5',
+    marginBottom: '20px'
+  },
+  modalBtnGroup: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px'
+  },
+  modalLoginBtn: {
+    padding: '12px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: '#3D1F1D',
+    color: '#FAF0E6',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  },
+  modalRegisterBtn: {
+    padding: '12px',
+    borderRadius: '8px',
+    border: '1px solid #3D1F1D',
+    backgroundColor: '#FFFDF9',
+    color: '#3D1F1D',
+    fontSize: '14px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  },
+  modalCloseBtn: {
+    padding: '10px',
+    borderRadius: '8px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    color: '#7A6258',
+    fontSize: '13px',
+    cursor: 'pointer',
+    marginTop: '5px'
   }
 };
 
