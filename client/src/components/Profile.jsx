@@ -132,7 +132,6 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
                   const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
                   const savedEdit = localEdits[itemId] || {};
                   
-                  // Βρίσκουμε αν υπάρχει τοπικά αποθηκευμένη πιο φρέσκια ημερομηνία
                   const localMatch = localWatched.find(lw => String(lw.movieId || lw.movie_id?._id || lw.movie_id) === String(movieIdStr));
                   const finalDate = localMatch?.watchedAt || item.watchedAt || item.createdAt;
 
@@ -149,7 +148,6 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
                   };
                 });
 
-              // Ταξινόμηση ώστε οι πιο πρόσφατες να έρχονται επάνω
               formatted.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
 
               setWatchedMovies(formatted);
@@ -192,7 +190,6 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
     delete localEdits[targetId];
     localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
 
-    // --- ΔΙΟΡΘΩΣΗ ΕΔΩ: Αποθηκεύουμε ΜΟΝΟ το targetId (watched ID) στα deletes για να μην επηρεάζονται οι άλλοι χρήστες ---
     let deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
     if (targetId && !deletedIds.includes(targetId)) deletedIds.push(targetId);
     localStorage.setItem(`watchedDeletes_${userEmail}`, JSON.stringify(deletedIds));

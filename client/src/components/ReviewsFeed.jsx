@@ -45,7 +45,6 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile
       items = items
         .filter(item => {
           const itemId = item._id || item.id;
-          // --- ΔΙΟΡΘΩΣΗ ΕΔΩ: Κρύβουμε ΜΟΝΟ αν το watched ID είναι στη λίστα διαγραφών σου ---
           return !deletedIds.includes(itemId);
         })
         .map(item => {

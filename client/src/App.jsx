@@ -12,7 +12,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [isLogin, setIsLogin] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
-  const [viewingUserId, setViewingUserId] = useState(null); // ID άλλου χρήστη για δημόσιο προφίλ
+  const [viewingUserId, setViewingUserId] = useState(null); 
   
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
@@ -38,7 +38,7 @@ function App() {
   };
 
   const handleNavigate = (tab) => {
-    // Μηδενίζουμε το viewingUserId για ΟΛΑ τα tabs που πατάμε από το Header!
+    
     setViewingUserId(null); 
     
     setActiveTab(tab);
@@ -54,7 +54,6 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
-  // Συνάρτηση για μετάβαση στο δημόσιο προφίλ άλλου χρήστη
   const handleNavigateToProfile = (userId) => {
     setViewingUserId(userId);
     setActiveTab('profile');

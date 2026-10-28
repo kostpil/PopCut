@@ -188,12 +188,11 @@ function MovieSearchModal({ onAddWatchedMovie, onNavigateToAuth }) {
       genre: selectedMovie.genre,
       director: selectedMovie.director,
       overview: selectedMovie.description || selectedMovie.overview || selectedMovie.plot,
-      watchedAt: nowIsoString, // <-- ΕΔΩ: Εξασφαλίζουμε τωρινή ημερομηνία τοπικά
-      createdAt: nowIsoString, // <-- ΕΔΩ: Εξασφαλίζουμε τωρινή ημερομηνία τοπικά
+      watchedAt: nowIsoString, 
+      createdAt: nowIsoString, 
       user_id: userObj
     };
 
-    // Αποθήκευση τοπικά (βάζοντας την ταινία ΠΡΩΤΗ στη λίστα για να φαίνεται επάνω-επάνω)
     const existingWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
     const filteredExisting = existingWatched.filter(m => {
       const mId = m.movieId || (typeof m.movie_id === 'object' ? m.movie_id?._id || m.movie_id?.id : m.movie_id);
