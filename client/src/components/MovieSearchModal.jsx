@@ -78,30 +78,102 @@ function MovieSearchModal({ onAddWatchedMovie, onNavigateToAuth }) {
     }
 
     const movieRealId = selectedMovie._id || selectedMovie.id;
-    const uniqueId = 'item_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const userObj = JSON.parse(savedUser);
+    const userEmail = userObj?.email || userObj?.username || 'default';
+
+    const nowIsoString = new Date().toISOString();
 
     const payload = {
       movie_id: movieRealId,
       rating: Number(rating),
       review: review,
-      watchedAt: new Date()
+      watchedAt: nowIsoString
     };
 
+    let savedWatchedId = null;
+
     try {
-      await fetch(`${API_BASE_URL}/api/watched`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
+      const watchedRes = await fetch(`${API_BASE_URL}/api/watched`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (watchedRes.ok) {
+        const watchedList = await watchedRes.json();
+        const foundOld = watchedList.find(item => {
+          const mId = item.movie_id?._id || item.movie_id?.id || item.movie_id;
+          return String(mId) === String(movieRealId);
+        });
+        if (foundOld) {
+          savedWatchedId = foundOld._id || foundOld.id;
+        }
+      }
+
+      let res;
+      if (savedWatchedId) {
+        res = await fetch(`${API_BASE_URL}/api/watched/${savedWatchedId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            rating: Number(rating),
+            review: review,
+            watchedAt: nowIsoString
+          })
+        });
+      } else {
+        res = await fetch(`${API_BASE_URL}/api/watched`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (res.status === 400) {
+          const retryRes = await fetch(`${API_BASE_URL}/api/watched`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (retryRes.ok) {
+            const list = await retryRes.json();
+            const match = list.find(item => {
+              const mId = item.movie_id?._id || item.movie_id?.id || item.movie_id;
+              return String(mId) === String(movieRealId);
+            });
+            if (match) {
+              savedWatchedId = match._id || match.id;
+              res = await fetch(`${API_BASE_URL}/api/watched/${savedWatchedId}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  rating: Number(rating),
+                  review: review,
+                  watchedAt: nowIsoString
+                })
+              });
+            }
+          }
+        }
+      }
+
+      let deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+      deletedIds = deletedIds.filter(id => String(id) !== String(movieRealId) && String(id) !== String(savedWatchedId));
+      localStorage.setItem(`watchedDeletes_${userEmail}`, JSON.stringify(deletedIds));
+
+      let permDeleted = JSON.parse(localStorage.getItem(`permDeletedMovies_${userEmail}`) || '[]');
+      permDeleted = permDeleted.filter(id => String(id) !== String(movieRealId));
+      localStorage.setItem(`permDeletedMovies_${userEmail}`, JSON.stringify(permDeleted));
+
     } catch (err) {
-      console.error("Failed to post watched movie to server:", err);
+      console.error("Failed to post/put watched movie to server:", err);
     }
 
-    const userObj = JSON.parse(savedUser);
-    const userEmail = userObj?.email || userObj?.username || 'default';
+    const uniqueId = savedWatchedId || ('item_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9));
 
     const newWatched = {
       _id: uniqueId,
@@ -116,16 +188,25 @@ function MovieSearchModal({ onAddWatchedMovie, onNavigateToAuth }) {
       genre: selectedMovie.genre,
       director: selectedMovie.director,
       overview: selectedMovie.description || selectedMovie.overview || selectedMovie.plot,
-      watchedAt: new Date().toISOString(),
+      watchedAt: nowIsoString, // <-- ΕΔΩ: Εξασφαλίζουμε τωρινή ημερομηνία τοπικά
+      createdAt: nowIsoString, // <-- ΕΔΩ: Εξασφαλίζουμε τωρινή ημερομηνία τοπικά
       user_id: userObj
     };
 
+    // Αποθήκευση τοπικά (βάζοντας την ταινία ΠΡΩΤΗ στη λίστα για να φαίνεται επάνω-επάνω)
     const existingWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
-    const updatedWatched = [newWatched, ...existingWatched];
-    localStorage.setItem(`watched_${userEmail}`, JSON.stringify(updatedWatched));
+    const filteredExisting = existingWatched.filter(m => {
+      const mId = m.movieId || (typeof m.movie_id === 'object' ? m.movie_id?._id || m.movie_id?.id : m.movie_id);
+      return String(mId) !== String(movieRealId);
+    });
+    localStorage.setItem(`watched_${userEmail}`, JSON.stringify([newWatched, ...filteredExisting]));
 
     const globalFeed = JSON.parse(localStorage.getItem('global_community_feed') || '[]');
-    localStorage.setItem('global_community_feed', JSON.stringify([newWatched, ...globalFeed]));
+    const filteredFeed = globalFeed.filter(m => {
+      const mId = m.movieId || (typeof m.movie_id === 'object' ? m.movie_id?._id || m.movie_id?.id : m.movie_id);
+      return String(mId) !== String(movieRealId);
+    });
+    localStorage.setItem('global_community_feed', JSON.stringify([newWatched, ...filteredFeed]));
 
     if (onAddWatchedMovie) {
       onAddWatchedMovie(newWatched);

@@ -4,7 +4,23 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
   : 'https://moviebook-2-production.up.railway.app';
 
-function Profile({ user: initialUser, onLogout }) {
+function Profile({ user: initialUser, onLogout, profileUserId }) {
+  const profileUserObj = typeof profileUserId === 'object' && profileUserId !== null ? profileUserId : null;
+  const cleanProfileId = profileUserObj 
+    ? (profileUserObj._id || profileUserObj.id || profileUserObj.userId || profileUserObj.sub || profileUserObj.email || profileUserObj.username)
+    : profileUserId;
+
+  const currentUserId = initialUser?._id || initialUser?.id;
+  const currentUserEmail = initialUser?.email;
+
+  const isOwnProfile = !cleanProfileId || 
+    (currentUserId && String(cleanProfileId) === String(currentUserId)) || 
+    (currentUserEmail && String(cleanProfileId) === String(currentUserEmail)) ||
+    (profileUserObj && (
+      (currentUserId && String(profileUserObj._id || profileUserObj.id) === String(currentUserId)) ||
+      (currentUserEmail && String(profileUserObj.email) === String(currentUserEmail))
+    ));
+
   const [user, setUser] = useState(initialUser);
   const [watchedMovies, setWatchedMovies] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
@@ -15,77 +31,144 @@ function Profile({ user: initialUser, onLogout }) {
   const [editReview, setEditReview] = useState('');
 
   useEffect(() => {
+    if (isOwnProfile && initialUser) {
+      setUser(initialUser);
+    }
+  }, [initialUser, isOwnProfile]);
+
+  useEffect(() => {
     const token = localStorage.getItem('token');
-    const userEmail = user?.email || 'default';
+    const userEmail = initialUser?.email || user?.email || 'default';
     
-    if (token) {
-      fetch(`${API_BASE_URL}/api/users/profile`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-        .then((res) => {
-          if (res.status === 401) {
-            throw new Error('Unauthorized - Please log in again.');
+    if (!isOwnProfile && cleanProfileId) {
+      if (profileUserObj) {
+        setUser(profileUserObj);
+      }
+
+      fetch(`${API_BASE_URL}/api/watched/user/${cleanProfileId}`)
+        .then(res => res.ok ? res.json() : [])
+        .then(userData => {
+          const userMovies = Array.isArray(userData) ? userData : [];
+
+          if (userMovies.length > 0 && userMovies[0].user_id && typeof userMovies[0].user_id === 'object') {
+            setUser(prev => ({ ...(prev || {}), ...userMovies[0].user_id }));
+          } else if (!profileUserObj) {
+            setUser({ username: String(cleanProfileId) });
           }
-          if (!res.ok) {
-            throw new Error('Failed to fetch profile');
-          }
-          return res.json();
+
+          const formatted = userMovies.map(item => {
+            const itemId = item._id || item.id;
+            const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
+            
+            const catalogMovie = allCatalogMovies.find(
+              (m) => String(m._id || m.id) === String(movieIdStr) ||
+                     m.title?.toLowerCase() === item.movie_id?.title?.toLowerCase()
+            );
+
+            return {
+              id: itemId, 
+              movieId: movieIdStr,
+              title: item.movie_id?.title || catalogMovie?.title || 'Unknown Movie',
+              poster_url: item.movie_id?.poster_url || catalogMovie?.poster_url,
+              year: item.movie_id?.year || catalogMovie?.year || catalogMovie?.release_year,
+              rating: item.rating,
+              review: item.review,
+              rawDate: item.watchedAt || item.createdAt,
+              watchedAt: item.watchedAt ? new Date(item.watchedAt).toLocaleDateString() : ''
+            };
+          });
+          setWatchedMovies(formatted);
         })
-        .then((data) => {
-          if (data) {
-            setUser(data);
-          }
-        })
-        .catch((err) => console.error("Error fetching profile:", err));
+        .catch(err => console.error("Error fetching other user watched movies:", err));
 
-      fetch(`${API_BASE_URL}/api/watched`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-        .then((res) => res.ok ? res.json() : [])
-        .then((data) => {
-          if (Array.isArray(data)) {
-            const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
-            const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
-
-            const formatted = data
-              .filter(item => !deletedIds.includes(item._id))
-              .map(item => {
-                const itemId = item._id;
-                const savedEdit = localEdits[itemId] || {};
-
-                return {
-                  id: itemId, 
-                  movieId: item.movie_id?._id || item.movie_id,
-                  title: item.movie_id?.title || 'Unknown Movie',
-                  poster_url: item.movie_id?.poster_url,
-                  year: item.movie_id?.year,
-                  rating: savedEdit.rating !== undefined ? savedEdit.rating : item.rating,
-                  review: savedEdit.review !== undefined ? savedEdit.review : item.review,
-                  watchedAt: item.watchedAt ? new Date(item.watchedAt).toLocaleDateString() : ''
-                };
-              });
-            setWatchedMovies(formatted);
+    } else {
+      if (token) {
+        fetch(`${API_BASE_URL}/api/users/profile`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
         })
-        .catch((err) => console.error("Error fetching watched movies from server:", err));
+          .then((res) => {
+            if (res.status === 401) {
+              throw new Error('Unauthorized - Please log in again.');
+            }
+            if (!res.ok) {
+              throw new Error('Failed to fetch profile');
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (data) {
+              setUser(prev => ({ ...(prev || {}), ...data }));
+            }
+          })
+          .catch((err) => console.error("Error fetching profile:", err));
+
+        fetch(`${API_BASE_URL}/api/watched`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+          .then((res) => res.ok ? res.json() : [])
+          .then((data) => {
+            if (Array.isArray(data)) {
+              const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+              const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
+              const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+              const permDeleted = JSON.parse(localStorage.getItem(`permDeletedMovies_${userEmail}`) || '[]');
+
+              const formatted = data
+                .filter(item => {
+                  const itemId = item._id || item.id;
+                  const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
+                  return !deletedIds.includes(itemId) && !deletedIds.includes(movieIdStr) && !permDeleted.includes(movieIdStr);
+                })
+                .map(item => {
+                  const itemId = item._id || item.id;
+                  const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
+                  const savedEdit = localEdits[itemId] || {};
+                  
+                  // Βρίσκουμε αν υπάρχει τοπικά αποθηκευμένη πιο φρέσκια ημερομηνία
+                  const localMatch = localWatched.find(lw => String(lw.movieId || lw.movie_id?._id || lw.movie_id) === String(movieIdStr));
+                  const finalDate = localMatch?.watchedAt || item.watchedAt || item.createdAt;
+
+                  return {
+                    id: itemId, 
+                    movieId: movieIdStr,
+                    title: item.movie_id?.title || 'Unknown Movie',
+                    poster_url: item.movie_id?.poster_url,
+                    year: item.movie_id?.year,
+                    rating: savedEdit.rating !== undefined ? savedEdit.rating : item.rating,
+                    review: savedEdit.review !== undefined ? savedEdit.review : item.review,
+                    rawDate: finalDate,
+                    watchedAt: finalDate ? new Date(finalDate).toLocaleDateString() : ''
+                  };
+                });
+
+              // Ταξινόμηση ώστε οι πιο πρόσφατες να έρχονται επάνω
+              formatted.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+
+              setWatchedMovies(formatted);
+            }
+          })
+          .catch((err) => console.error("Error fetching watched movies from server:", err));
+      }
     }
 
     fetch(`${API_BASE_URL}/api/movies`)
       .then((res) => res.ok ? res.json() : [])
       .then((data) => setAllCatalogMovies(data))
       .catch((err) => console.error("Error fetching catalog movies:", err));
-  }, []);
+  }, [cleanProfileId, isOwnProfile]);
 
-  const handleDeleteMovie = async (movieItem) => {
+ const handleDeleteMovie = async (movieItem) => {
+    if (!isOwnProfile) return;
     const targetId = movieItem._id || movieItem.id;
+    const movieIdStr = movieItem.movieId || (typeof movieItem.movie_id === 'object' ? movieItem.movie_id?._id || movieItem.movie_id?.id : movieItem.movie_id);
     const token = localStorage.getItem('token');
     const userEmail = user?.email || 'default';
     
@@ -109,22 +192,33 @@ function Profile({ user: initialUser, onLogout }) {
     delete localEdits[targetId];
     localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
 
-    const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
-    if (!deletedIds.includes(targetId)) {
-      deletedIds.push(targetId);
-      localStorage.setItem(`watchedDeletes_${userEmail}`, JSON.stringify(deletedIds));
+    // --- ΔΙΟΡΘΩΣΗ ΕΔΩ: Αποθηκεύουμε ΜΟΝΟ το targetId (watched ID) στα deletes για να μην επηρεάζονται οι άλλοι χρήστες ---
+    let deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+    if (targetId && !deletedIds.includes(targetId)) deletedIds.push(targetId);
+    localStorage.setItem(`watchedDeletes_${userEmail}`, JSON.stringify(deletedIds));
+
+    let permDeleted = JSON.parse(localStorage.getItem(`permDeletedMovies_${userEmail}`) || '[]');
+    if (movieIdStr && !permDeleted.includes(movieIdStr)) {
+      permDeleted.push(movieIdStr);
+      localStorage.setItem(`permDeletedMovies_${userEmail}`, JSON.stringify(permDeleted));
     }
+
+    const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
+    const cleanedWatched = localWatched.filter(m => (m._id || m.id) !== targetId);
+    localStorage.setItem(`watched_${userEmail}`, JSON.stringify(cleanedWatched));
 
     window.dispatchEvent(new Event('watched_updated'));
   };
-
+  
   const handleStartEdit = (movie) => {
+    if (!isOwnProfile) return;
     setEditingMovieId(movie.id);
     setEditRating(String(movie.rating));
     setEditReview(movie.review || '');
   };
 
   const handleSaveEdit = async (id) => {
+    if (!isOwnProfile) return;
     const token = localStorage.getItem('token');
     const userEmail = user?.email || 'default';
     const newRatingNum = Number(editRating);
@@ -197,8 +291,9 @@ function Profile({ user: initialUser, onLogout }) {
     return stars;
   };
 
-  const userAge = user?.age !== undefined && user?.age !== null ? user.age : 'N/A';
-  const initialLetter = (user?.firstName || user?.first_name || user?.email || 'U').charAt(0).toUpperCase();
+  const userAge = user?.age !== undefined && user?.age !== null && user?.age !== '' ? user.age : null;
+  const initialLetter = (user?.firstName || user?.first_name || user?.username || user?.email || 'U').charAt(0).toUpperCase();
+  const displayName = user?.username || user?.firstName || user?.first_name || user?.email || 'Movie Lover';
 
   return (
     <div style={styles.container}>
@@ -208,15 +303,19 @@ function Profile({ user: initialUser, onLogout }) {
         </div>
       </div>
 
-      <h2 style={styles.title}>My Profile</h2>
+      <h2 style={styles.title}>{isOwnProfile ? 'My Profile' : `${displayName}'s Profile`}</h2>
 
       <div style={styles.infoGroup}>
         <p style={styles.infoText}>
-          <strong>Email:</strong> {user?.email || 'N/A'}
+          <strong>Email:</strong> {user?.email || user?.username || 'N/A'}
         </p>
-        <p style={styles.infoText}>
-          <strong>Age:</strong> {userAge}
-        </p>
+
+        {(isOwnProfile || userAge !== null) && (
+          <p style={styles.infoText}>
+            <strong>Age:</strong> {userAge !== null ? userAge : 'N/A'}
+          </p>
+        )}
+
         {(user?.firstName || user?.first_name) && (
           <p style={styles.infoText}>
             <strong>Name:</strong> {user.firstName || user.first_name} {user.lastName || user.last_name || ''}
@@ -225,7 +324,9 @@ function Profile({ user: initialUser, onLogout }) {
       </div>
 
       <div style={styles.watchedSection}>
-        <h3 style={styles.subTitle}>My Watched Movies ({watchedMovies.length})</h3>
+        <h3 style={styles.subTitle}>
+          {isOwnProfile ? `My Watched Movies (${watchedMovies.length})` : `Watched Movies (${watchedMovies.length})`}
+        </h3>
         {watchedMovies.length === 0 ? (
           <p style={styles.emptyText}>No movies logged yet.</p>
         ) : (
@@ -290,14 +391,16 @@ function Profile({ user: initialUser, onLogout }) {
                       {m.review && <p style={styles.reviewText}>"{m.review}"</p>}
                       <small style={styles.dateText}>Logged on: {m.watchedAt}</small>
 
-                      <div style={styles.actionRow}>
-                        <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
-                          Edit
-                        </button>
-                        <button onClick={() => handleDeleteMovie(m)} style={styles.deleteBtn}>
-                          Delete
-                        </button>
-                      </div>
+                      {isOwnProfile && (
+                        <div style={styles.actionRow}>
+                          <button onClick={() => handleStartEdit(m)} style={styles.editBtn}>
+                            Edit
+                          </button>
+                          <button onClick={() => handleDeleteMovie(m)} style={styles.deleteBtn}>
+                            Delete
+                          </button>
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
@@ -307,9 +410,11 @@ function Profile({ user: initialUser, onLogout }) {
         )}
       </div>
 
-      <button onClick={onLogout} style={styles.logoutBtn}>
-        Logout
-      </button>
+      {isOwnProfile && (
+        <button onClick={onLogout} style={styles.logoutBtn}>
+          Logout
+        </button>
+      )}
 
       {selectedMovie && (
         <div style={styles.modalOverlay} onClick={() => setSelectedMovie(null)}>
@@ -348,7 +453,7 @@ function Profile({ user: initialUser, onLogout }) {
 
                 <div style={styles.modalReviewBox}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                    <strong style={{ fontSize: '12px' }}>Your Rating:</strong>
+                    <strong style={{ fontSize: '12px' }}>Rating:</strong>
                     <div>{renderStars(selectedMovie.rating)}</div>
                   </div>
                   {selectedMovie.review && (

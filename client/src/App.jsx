@@ -12,7 +12,8 @@ function App() {
   const [user, setUser] = useState(null);
   const [isLogin, setIsLogin] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
-
+  const [viewingUserId, setViewingUserId] = useState(null); // ID άλλου χρήστη για δημόσιο προφίλ
+  
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
@@ -23,11 +24,13 @@ function App() {
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
+    setViewingUserId(null);
     setActiveTab('profile');
   };
 
   const handleLogout = () => {
     setUser(null);
+    setViewingUserId(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setIsLogin(true);
@@ -35,6 +38,9 @@ function App() {
   };
 
   const handleNavigate = (tab) => {
+    // Μηδενίζουμε το viewingUserId για ΟΛΑ τα tabs που πατάμε από το Header!
+    setViewingUserId(null); 
+    
     setActiveTab(tab);
     if (tab === 'login') setIsLogin(true);
     if (tab === 'register') setIsLogin(false);
@@ -42,8 +48,16 @@ function App() {
   };
 
   const handleNavigateToAuth = (type) => {
+    setViewingUserId(null);
     setActiveTab(type);
     setIsLogin(type === 'login');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  // Συνάρτηση για μετάβαση στο δημόσιο προφίλ άλλου χρήστη
+  const handleNavigateToProfile = (userId) => {
+    setViewingUserId(userId);
+    setActiveTab('profile');
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
@@ -60,6 +74,7 @@ function App() {
 
   return (
     <div style={styles.mainWrapper}>
+      
       <Header 
         user={user} 
         activeTab={activeTab} 
@@ -76,12 +91,17 @@ function App() {
         ) : activeTab === 'reviews' ? (
           <ReviewsFeed 
             onNavigateToSearch={() => handleNavigate('search')} 
-            onNavigateToAuth={handleNavigateToAuth} 
+            onNavigateToAuth={handleNavigateToAuth}
+            onNavigateToProfile={handleNavigateToProfile}
           />
         ) : activeTab === 'home' ? (
-          <HomePage /> 
-        ) : activeTab === 'profile' && user ? (
-          <Profile user={user} onLogout={handleLogout} />
+          <HomePage user={user} onNavigateToAuth={handleNavigateToAuth} /> 
+        ) : activeTab === 'profile' ? (
+          <Profile 
+            user={user} 
+            onLogout={handleLogout} 
+            profileUserId={viewingUserId} 
+          />
         ) : activeTab === 'login' ? (
           <div style={styles.cardWrapper}>
             <img src={logo} alt="PopCut Logo" style={styles.logoAuth} />
@@ -103,6 +123,7 @@ function App() {
         <footer style={styles.footer}>
           <p style={styles.footerText}>© Built by Haralambos Ktenidis & Kostas Pilateris | PopCut 2026</p>
         </footer>
+        
       </div>
     </div>
   );
@@ -127,13 +148,12 @@ const styles = {
     padding: '20px 0', 
     overflowX: 'hidden' 
   },
-  
   logoAuth: {
-    width: '260px',           
+    width: '260px',            
     height: 'auto',
-    marginTop: '5px',         
+    marginTop: '5px',        
     marginBottom: '10px',    
-    display: 'block',         
+    display: 'block',        
     marginLeft: 'auto',        
     marginRight: 'auto',      
     objectFit: 'contain'

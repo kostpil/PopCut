@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import logo from '../assets/popcut.png';
-import filmStripImg from '../assets/film-strip.png';
 
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
   : 'https://moviebook-2-production.up.railway.app';
 
-function HomePage() {
+function HomePage({ user, onNavigateToAuth }) {
   const [movies, setMovies] = useState([]);
-  const [startIndex, setStartIndex] = useState(0);
-  const [fade, setFade] = useState(true);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [latestReviews, setLatestReviews] = useState([]);
 
   useEffect(() => {
@@ -20,79 +18,153 @@ function HomePage() {
           setMovies(data);
         }
       })
-      .catch((err) => console.error("Error fetching movies for film slider:", err));
+      .catch((err) => console.error("Error fetching movies for carousel:", err));
   }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/reviews`)
-      .then((res) => res.ok ? res.json() : [])
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setLatestReviews(data.slice(0, 4)); 
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/watched/feed`);
+        let data = [];
+        if (res.ok) {
+          data = await res.json();
+        } else {
+          const resFallback = await fetch(`${API_BASE_URL}/api/feed`);
+          if (resFallback.ok) {
+            data = await resFallback.json();
+          }
         }
-      })
-      .catch((err) => console.error("Error fetching latest reviews:", err));
+
+        let items = Array.isArray(data) ? data : [];
+
+        const savedUser = localStorage.getItem('user');
+        const userObj = savedUser ? JSON.parse(savedUser) : null;
+        const userEmail = userObj?.email || userObj?.username || 'default';
+
+        const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+        const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
+        const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+
+        items = items
+          .filter(item => {
+            const itemId = item._id || item.id;
+            return !deletedIds.includes(itemId);
+          })
+          .map(item => {
+            const id = item._id || item.id;
+            const movieId = item.movie_id?._id || item.movie_id?.id || item.movie_id;
+            const itemUserEmail = item.user_id?.email || item.user_id?.username;
+
+            let finalDate = item.watchedAt || item.createdAt;
+            if (userEmail && itemUserEmail === userEmail) {
+              const localMatch = localWatched.find(lw => String(lw.movieId || lw.movie_id?._id || lw.movie_id) === String(movieId));
+              if (localMatch && localMatch.watchedAt) {
+                finalDate = localMatch.watchedAt;
+              }
+            }
+
+            let updatedItem = {
+              ...item,
+              rawDate: finalDate
+            };
+
+            if (localEdits[id]) {
+              updatedItem.rating = localEdits[id].rating !== undefined ? localEdits[id].rating : updatedItem.rating;
+              updatedItem.review = localEdits[id].review !== undefined ? localEdits[id].review : updatedItem.review;
+            }
+            return updatedItem;
+          });
+
+        items.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+
+        setLatestReviews(items.slice(0, 4));
+      } catch (err) {
+        console.error("Error fetching latest reviews:", err);
+      }
+    };
+    fetchReviews();
   }, []);
 
   useEffect(() => {
     if (movies.length === 0) return;
 
     const interval = setInterval(() => {
-      setFade(false); 
-      
-      setTimeout(() => {
-        setStartIndex((prev) => (prev + 5) % movies.length); 
-        setFade(true); 
-      }, 500); 
-
-    }, 4000); 
+      setCurrentIndex((prev) => (prev + 1) % movies.length);
+    }, 3500);
 
     return () => clearInterval(interval);
   }, [movies]);
 
-  const visibleMovies = [];
-  if (movies.length > 0) {
-    for (let i = 0; i < 5; i++) {
-      visibleMovies.push(movies[(startIndex + i) % movies.length]);
+  const getVisibleMovies = () => {
+    if (movies.length === 0) return [];
+    const visible = [];
+    for (let i = -2; i <= 2; i++) {
+      const index = (currentIndex + i + movies.length) % movies.length;
+      visible.push({ ...movies[index], offset: i });
     }
-  }
+    return visible;
+  };
+
+  const renderStars = (rating) => {
+    const stars = [];
+    const num = Number(rating) || 5;
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <span key={i} style={{ color: i <= num ? '#B87333' : '#C4A88E', fontSize: '12px' }}>
+          ★
+        </span>
+      );
+    }
+    return stars;
+  };
 
   return (
     <div style={styles.homeContainer}>
       <img src={logo} alt="PopCut Logo" style={styles.logo} />
       <div style={styles.tagline}>MOVIES · POP-CORN · OPINIONS</div>
 
-      <div style={styles.sliderContainer}>
-        <div style={styles.filmWrapper}>
-          
-          <div style={styles.postersOverlay}>
-            {visibleMovies.length > 0 ? (
-              visibleMovies.map((movie, index) => (
-                <div key={index} style={styles.posterFrame}>
+      <div style={styles.carouselContainer}>
+        {movies.length > 0 ? (
+          <div style={styles.carouselTrack}>
+            {getVisibleMovies().map((movie, idx) => {
+  const isCenter = movie.offset === 0;
+  const isOuter = Math.abs(movie.offset) === 2;
+
+  return (
+    <div 
+      key={idx} 
+      style={{
+        ...styles.carouselCard,
+        transform: isCenter 
+          ? 'scale(1.18)' 
+          : isOuter 
+          ? 'scale(0.90)'  
+          : 'scale(1.0)',
+        zIndex: isCenter ? 4 : isOuter ? 1 : 2,
+        opacity: isOuter ? 0.6 : isCenter ? 1 : 0.85,
+      }}
+    >
                   {movie?.poster_url ? (
                     <img 
                       src={movie.poster_url} 
                       alt={movie.title} 
-                      style={{
-                        ...styles.posterImg,
-                        opacity: fade ? 1 : 0 
-                      }} 
+                      style={styles.carouselPoster} 
                     />
                   ) : (
                     <div style={styles.placeholder}>{movie?.title || 'PopCut'}</div>
                   )}
+                  {isCenter && (
+                    <div style={styles.movieTitleOverlay}>
+                      {movie.title}
+                    </div>
+                  )}
                 </div>
-              ))
-            ) : (
-              <div style={{ gridColumn: 'span 5', textAlign: 'center', color: '#7A6258', fontSize: '12px' }}>
-                Loading film reel...
-              </div>
-            )}
+              );
+            })}
           </div>
-
-          <img src={filmStripImg} alt="Film Strip" style={styles.filmImage} />
-
-        </div>
+        ) : (
+          <p style={{ color: '#7A6258', fontSize: '13px' }}>Loading cinematic carousel...</p>
+        )}
       </div>
 
       <div style={styles.feedContainer}>
@@ -100,23 +172,45 @@ function HomePage() {
         
         <div style={styles.reviewsGrid}>
           {latestReviews.length > 0 ? (
-            latestReviews.map((review, index) => (
-              <div key={index} style={styles.reviewCard}>
-                <div style={styles.reviewHeader}>
-                  <span style={styles.movieTitle}>{review.movie_title || 'Movie'}</span>
-                  <span style={styles.reviewRating}>⭐ {review.rating}/5</span>
+            latestReviews.map((item, index) => {
+              const movie = item.movie_id || {};
+              const username = item.user_id?.username || item.user_id?.email || 'Movie Lover';
+              const rating = item.rating || 5;
+              const reviewText = item.review || item.comment || item.text || '';
+              const movieTitle = movie.title || item.movie_title || 'Featured Film';
+
+              return (
+                <div key={index} style={styles.reviewCard}>
+                  <div style={styles.reviewHeader}>
+                    <span style={styles.cardMovieTitle}>{movieTitle}</span>
+                    <div style={styles.reviewRating}>{renderStars(rating)}</div>
+                  </div>
+                  {reviewText && <p style={styles.reviewComment}>"{reviewText}"</p>}
+                  <span style={styles.reviewAuthor}>By: {username}</span>
                 </div>
-                <p style={styles.reviewComment}>"{review.comment || review.text}"</p>
-                <span style={styles.reviewAuthor}>By: {review.username || 'User'}</span>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div style={{ gridColumn: 'span 2', textAlign: 'center', color: '#7A6258', fontSize: '13px', padding: '20px 0' }}>
-              Loading recent reviews...
+              No recent reviews found yet. Be the first to add one!
             </div>
           )}
         </div>
       </div>
+
+      {/* Emfanizetai mono otan den einai syndedemenos o xristiss */}
+      {!user && (
+        <div style={styles.joinSection}>
+          <button 
+            onClick={() => {
+              if (onNavigateToAuth) onNavigateToAuth('login');
+            }} 
+            style={styles.joinBtn}
+          >
+            Join Our Community
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -126,82 +220,66 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     width: '100%',
+    maxWidth: '1200px',
     margin: '0 auto',
     textAlign: 'center',
-    padding: '10px 0',
+    padding: '20px 20px',
     boxSizing: 'border-box'
   },
   logo: {
-    width: '350px',           
+    width: '330px',            
     height: 'auto',
-    marginBottom: '1px',    
+    marginBottom: '0px',    
+    marginTop: '-25px',
     display: 'block',        
     objectFit: 'contain'
   },
-  tagline: {
-    fontSize: '13px',
-    fontWeight: '800',
-    letterSpacing: '2.5px',
+  tagline: { //movies-popcorn-opinions
+    fontSize: '14.5px',
+    fontWeight: '1500',
+    letterSpacing: '5px',
     color: '#A84338',
-    marginTop: '10px',
-    marginBottom: '10px',    
+    marginTop: '19px',
+    marginBottom: '7px',    
     textTransform: 'uppercase'
   },
-  sliderContainer: {
+  carouselContainer: {
     width: '100%',
+    height: '340px',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: '15px',       
-    padding: '0 20px',
-    boxSizing: 'border-box'
-  },
-  filmWrapper: {
-    position: 'relative',
-    width: '100%',
-    maxWidth: '920px',      
-    margin: '0 auto',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  filmImage: {
-    width: '100%',
-    height: 'auto',          
-    display: 'block',
-    zIndex: 2,
-    pointerEvents: 'none'
-  },
-  postersOverlay: {
-    position: 'absolute',
-    top: '9.8%',              
-    bottom: '14.0%',          
-    left: '1.0%',             
-    right: '0.5%',            
-    display: 'flex',      
-    justifyContent: 'space-between', 
-    boxSizing: 'border-box',
-    zIndex: 1,
-    alignItems: 'center'
-  },
-  posterFrame: {
-    width: '20.2%',          
-    height: '100%',   
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
-    borderRadius: '2px'
+    position: 'relative',
+    marginBottom: '15px'
   },
-  posterImg: {
+  carouselTrack: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '30px', 
+    width: '100%',
+    transition: 'all 0.5s ease-in-out'
+  },
+  carouselCard: {
+    width: '160px',
+    height: '240px',
+    borderRadius: '12px',
+    overflow: 'hidden',
+    backgroundColor: '#3D1F1D',
+    boxShadow: '0 8px 20px rgba(61, 31, 29, 0.2)',
+    transition: 'transform 0.5s ease, opacity 0.5s ease, filter 0.5s ease',
+    position: 'relative',
+    flexShrink: 0,
+    border: '2px solid #D8C0A8'
+  },
+  carouselPoster: {
     width: '100%',
     height: '100%',
-    objectFit: 'cover',          
-    objectPosition: 'top center',
-    borderRadius: '2px',
-    transition: 'opacity 0.5s ease-in-out'
+    objectFit: 'cover',
+    display: 'block'
   },
   placeholder: {
     width: '100%',
@@ -211,42 +289,58 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    fontSize: '12px',
+    textAlign: 'center',
+    padding: '10px'
+  },
+  movieTitleOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(61, 31, 29, 0.85)',
+    color: '#FAF0E6',
     fontSize: '11px',
-    textAlign: 'center'
+    fontWeight: 'bold',
+    padding: '6px 8px',
+    textAlign: 'center',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
   },
   feedContainer: {
     width: '100%',
-    maxWidth: '920px', 
-    margin: '40px auto 30px auto',
-    padding: '0 20px',
+    maxWidth: '900px', 
+    margin: '20px auto 10px auto',
     boxSizing: 'border-box',
     textAlign: 'left'
   },
-  feedTitle: {
+  feedTitle: { //recent reviews
     fontSize: '14px',
     fontWeight: '800',
     letterSpacing: '2px',
-    color: '#A84338',       
-    marginBottom: '15px',
+    color: '#A84338',  
+    marginTop: '-15px',    
+    marginBottom: '20px',
     textAlign: 'center',
     textTransform: 'uppercase'
   },
   reviewsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)', 
-    gap: '15px',                          
+    gap: '15px',                         
     boxSizing: 'border-box'
   },
   reviewCard: {
-    backgroundColor: '#FAF0E6',             
-    border: '1px solid #D5C2B4',
-    borderRadius: '6px',
-    padding: '15px',
+    backgroundColor: '#FFFDF9',             
+    border: '1px solid #D8C0A8',
+    borderRadius: '12px',
+    padding: '16px',
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
-    boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+    boxShadow: '0 4px 12px rgba(61, 31, 29, 0.06)'
   },
   reviewHeader: {
     display: 'flex',
@@ -254,19 +348,18 @@ const styles = {
     alignItems: 'center',
     marginBottom: '8px'
   },
-  movieTitle: {
+  cardMovieTitle: {
     fontWeight: '700',
     fontSize: '13px',
-    color: '#A84338'
+    color: '#3D1F1D'
   },
   reviewRating: {
-    fontSize: '12px',
-    fontWeight: '600',
-    color: '#3D1F1D'
+    display: 'flex',
+    gap: '2px'
   },
   reviewComment: {
     fontSize: '13px',
-    color: '#4A3B32',
+    color: '#4A3228',
     margin: '0 0 10px 0',
     fontStyle: 'italic',
     lineHeight: '1.4'
@@ -274,7 +367,28 @@ const styles = {
   reviewAuthor: {
     fontSize: '11px',
     color: '#7A6258',
-    textAlign: 'right'
+    textAlign: 'right',
+    fontWeight: '600'
+  },
+  joinSection: {
+    width: '100%',
+    margin: '35px 0 20px 0',
+    display: 'flex',
+    justifyContent: 'center'
+  },
+  joinBtn: {
+    padding: '14px 32px',
+    borderRadius: '12px',
+    border: 'none',
+    backgroundColor: '#3D1F1D',
+    color: '#FAF0E6',
+    fontSize: '15px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    boxShadow: '0 6px 18px rgba(61, 31, 29, 0.2)',
+    transition: 'transform 0.2s ease',
+    textTransform: 'uppercase',
+    letterSpacing: '1px'
   }
 };
 

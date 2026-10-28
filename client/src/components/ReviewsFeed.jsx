@@ -4,7 +4,7 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
   : 'https://moviebook-2-production.up.railway.app';
 
-function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
+function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile }) {
   const [feedItems, setFeedItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -39,21 +39,41 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
       const userEmail = userObj?.email || userObj?.username || 'default';
 
       const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+      const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
       const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
 
       items = items
-        .filter(item => !deletedIds.includes(item._id || item.id))
+        .filter(item => {
+          const itemId = item._id || item.id;
+          // --- ΔΙΟΡΘΩΣΗ ΕΔΩ: Κρύβουμε ΜΟΝΟ αν το watched ID είναι στη λίστα διαγραφών σου ---
+          return !deletedIds.includes(itemId);
+        })
         .map(item => {
           const id = item._id || item.id;
-          if (localEdits[id]) {
-            return {
-              ...item,
-              rating: localEdits[id].rating !== undefined ? localEdits[id].rating : item.rating,
-              review: localEdits[id].review !== undefined ? localEdits[id].review : item.review
-            };
+          const movieId = item.movie_id?._id || item.movie_id?.id || item.movie_id;
+          const itemUserEmail = item.user_id?.email || item.user_id?.username;
+
+          let finalDate = item.watchedAt || item.createdAt;
+          if (userEmail && itemUserEmail === userEmail) {
+            const localMatch = localWatched.find(lw => String(lw.movieId || lw.movie_id?._id || lw.movie_id) === String(movieId));
+            if (localMatch && localMatch.watchedAt) {
+              finalDate = localMatch.watchedAt;
+            }
           }
-          return item;
+
+          let updatedItem = {
+            ...item,
+            rawDate: finalDate
+          };
+
+          if (localEdits[id]) {
+            updatedItem.rating = localEdits[id].rating !== undefined ? localEdits[id].rating : updatedItem.rating;
+            updatedItem.review = localEdits[id].review !== undefined ? localEdits[id].review : updatedItem.review;
+          }
+          return updatedItem;
         });
+
+      items.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
 
       setFeedItems(items);
       setLoading(false);
@@ -172,6 +192,11 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
     if (onNavigateToSearch) onNavigateToSearch();
   };
 
+  const handleProfileNavigation = (userObjOrId) => {
+    if (!onNavigateToProfile || !userObjOrId) return;
+    onNavigateToProfile(userObjOrId);
+  };
+
   const totalPages = Math.ceil(feedItems.length / itemsPerPage);
   const currentItems = feedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -211,7 +236,8 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
           <div style={styles.feedGrid}>
             {currentItems.map((item) => {
               const watchedId = item._id || item.id;
-              const userEmail = item.user_id?.email || item.user_id?.username || 'Anonymous';
+              const username = item.user_id?.username || item.user_id?.email || 'Anonymous';
+              const authorData = item.user_id;
               const movie = item.movie_id || {};
               const commentCount = countsMap[watchedId] !== undefined ? countsMap[watchedId] : (item.commentsCount || 0);
 
@@ -227,10 +253,16 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
 
                   <div style={styles.cardContent}>
                     <div style={styles.userRow}>
-                      <div style={styles.avatarCircle}>{userEmail.charAt(0).toUpperCase()}</div>
+                      <div style={styles.avatarCircle}>{username.charAt(0).toUpperCase()}</div>
                       <div style={styles.userMeta}>
-                        <span style={styles.userEmail} title={userEmail}>{userEmail}</span>
-                        <small style={styles.dateText}>{formatDateTime(item.watchedAt || item.createdAt)}</small>
+                        <span 
+                          style={{ ...styles.userEmail, cursor: 'pointer', textDecoration: 'underline' }} 
+                          title={username}
+                          onClick={() => handleProfileNavigation(authorData)}
+                        >
+                          {username}
+                        </span>
+                        <small style={styles.dateText}>{formatDateTime(item.rawDate)}</small>
                       </div>
                     </div>
 
@@ -276,7 +308,8 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
 
       {activeItem && (() => {
         const movie = activeItem.movie_id || {};
-        const userEmail = activeItem.user_id?.email || activeItem.user_id?.username || 'Anonymous';
+        const username = activeItem.user_id?.username || activeItem.user_id?.email || 'Anonymous';
+        const authorData = activeItem.user_id;
 
         return (
           <div style={styles.modalOverlay}>
@@ -296,10 +329,16 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
                 </div>
                 <div style={styles.cardContent}>
                   <div style={styles.userRow}>
-                    <div style={styles.avatarCircle}>{userEmail.charAt(0).toUpperCase()}</div>
+                    <div style={styles.avatarCircle}>{username.charAt(0).toUpperCase()}</div>
                     <div style={styles.userMeta}>
-                      <span style={styles.userEmail} title={userEmail}>{userEmail}</span>
-                      <small style={styles.dateText}>{formatDateTime(activeItem.watchedAt || activeItem.createdAt)}</small>
+                      <span 
+                        style={{ ...styles.userEmail, cursor: 'pointer', textDecoration: 'underline' }} 
+                        title={username}
+                        onClick={() => handleProfileNavigation(authorData)}
+                      >
+                        {username}
+                      </span>
+                      <small style={styles.dateText}>{formatDateTime(activeItem.rawDate)}</small>
                     </div>
                   </div>
                   <div style={styles.movieHeader}>
@@ -319,14 +358,22 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
                   <p style={styles.commentStatus}>No comments yet. Be the first to reply!</p>
                 ) : (
                   <div style={styles.commentsList}>
-                    {commentsList.map((c, idx) => (
-                      <div key={idx} style={styles.commentItem}>
-                        <strong style={styles.commenterName}>
-                          {c.commenter_id?.email || c.commenter_id?.username || 'User'}:
-                        </strong>
-                        <span style={styles.commentText}>{c.comment}</span>
-                      </div>
-                    ))}
+                    {commentsList.map((c, idx) => {
+                      const commenterName = c.commenter_id?.username || c.commenter_id?.email || 'User';
+                      const commenterData = c.commenter_id;
+
+                      return (
+                        <div key={idx} style={styles.commentItem}>
+                          <strong 
+                            style={{ ...styles.commenterName, cursor: 'pointer', textDecoration: 'underline' }}
+                            onClick={() => handleProfileNavigation(commenterData)}
+                          >
+                            {commenterName}:
+                          </strong>
+                          <span style={styles.commentText}>{c.comment}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -348,8 +395,8 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth }) {
 
       {showAuthModal && (
         <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3 style={styles.modalTitle}>Authentication Required</h3>
+          <div style={styles.authModalContent}>
+            <h3 style={styles.authModalTitle}>Authentication Required</h3>
             <p style={styles.modalText}>
               You need to have an account for this action. Please log in or register!
             </p>
@@ -582,7 +629,8 @@ const styles = {
     backgroundColor: '#3D1F1D',
     color: '#FAF0E6',
     fontSize: '13px',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    cursor: 'pointer'
   },
   pageInfo: {
     fontSize: '14px',
@@ -610,6 +658,17 @@ const styles = {
     maxWidth: '550px',
     maxHeight: '90vh',
     overflowY: 'auto',
+    border: '2px solid #C4A88E',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+    boxSizing: 'border-box'
+  },
+  authModalContent: {
+    backgroundColor: '#FAF0E6',
+    padding: '30px',
+    borderRadius: '16px',
+    width: '100%',
+    maxWidth: '400px',
+    textAlign: 'center',
     border: '2px solid #C4A88E',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
     boxSizing: 'border-box'
@@ -703,17 +762,7 @@ const styles = {
     fontWeight: 'bold',
     cursor: 'pointer'
   },
-  modalContent: {
-    backgroundColor: '#FAF0E6',
-    padding: '30px',
-    borderRadius: '16px',
-    width: '100%',
-    maxWidth: '400px',
-    textAlign: 'center',
-    border: '2px solid #C4A88E',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)'
-  },
-  modalTitle: {
+  authModalTitle: {
     fontSize: '20px',
     fontWeight: 'bold',
     color: '#3D1F1D',
