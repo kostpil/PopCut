@@ -238,7 +238,7 @@ const styles = {
   },
   tagline: { //movies-popcorn-opinions
     fontSize: '14.5px',
-    fontWeight: '1500',
+    fontWeight: '900', 
     letterSpacing: '5px',
     color: '#A84338',
     marginTop: '19px',
