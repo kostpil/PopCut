@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import logo from '../assets/popcut.png';
 
 const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
@@ -21,7 +22,9 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile
   const fetchFeed = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/watched/feed`);
+      const res = await fetch(`${API_BASE_URL}/api/watched/feed`, {
+        cache: 'no-store'
+      });
       let data = [];
       if (res.ok) {
         data = await res.json();
@@ -36,11 +39,12 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile
 
       const savedUser = localStorage.getItem('user');
       const userObj = savedUser ? JSON.parse(savedUser) : null;
-      const userEmail = userObj?.email || userObj?.username || 'default';
+      
+      const userEmail = userObj?.email || userObj?.username || null;
 
-      const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
-      const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
-      const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+      const localEdits = userEmail ? JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}') : {};
+      const localWatched = userEmail ? JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]') : [];
+      const deletedIds = userEmail ? JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]') : [];
 
       items = items
         .filter(item => {
@@ -65,7 +69,7 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile
             rawDate: finalDate
           };
 
-          if (localEdits[id]) {
+          if (userEmail && localEdits[id]) {
             updatedItem.rating = localEdits[id].rating !== undefined ? localEdits[id].rating : updatedItem.rating;
             updatedItem.review = localEdits[id].review !== undefined ? localEdits[id].review : updatedItem.review;
           }

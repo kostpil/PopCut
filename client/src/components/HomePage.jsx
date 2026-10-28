@@ -24,7 +24,9 @@ function HomePage({ user, onNavigateToAuth }) {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/watched/feed`);
+        const res = await fetch(`${API_BASE_URL}/api/watched/feed`, {
+          cache: 'no-store'
+        });
         let data = [];
         if (res.ok) {
           data = await res.json();
@@ -39,11 +41,12 @@ function HomePage({ user, onNavigateToAuth }) {
 
         const savedUser = localStorage.getItem('user');
         const userObj = savedUser ? JSON.parse(savedUser) : null;
-        const userEmail = userObj?.email || userObj?.username || 'default';
+        
+        const userEmail = userObj?.email || userObj?.username || null;
 
-        const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
-        const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
-        const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
+        const localEdits = userEmail ? JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}') : {};
+        const localWatched = userEmail ? JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]') : [];
+        const deletedIds = userEmail ? JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]') : [];
 
         items = items
           .filter(item => {
@@ -68,7 +71,7 @@ function HomePage({ user, onNavigateToAuth }) {
               rawDate: finalDate
             };
 
-            if (localEdits[id]) {
+            if (userEmail && localEdits[id]) {
               updatedItem.rating = localEdits[id].rating !== undefined ? localEdits[id].rating : updatedItem.rating;
               updatedItem.review = localEdits[id].review !== undefined ? localEdits[id].review : updatedItem.review;
             }
@@ -83,7 +86,7 @@ function HomePage({ user, onNavigateToAuth }) {
       }
     };
     fetchReviews();
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (movies.length === 0) return;
@@ -127,23 +130,23 @@ function HomePage({ user, onNavigateToAuth }) {
         {movies.length > 0 ? (
           <div style={styles.carouselTrack}>
             {getVisibleMovies().map((movie, idx) => {
-  const isCenter = movie.offset === 0;
-  const isOuter = Math.abs(movie.offset) === 2;
+              const isCenter = movie.offset === 0;
+              const isOuter = Math.abs(movie.offset) === 2;
 
-  return (
-    <div 
-      key={idx} 
-      style={{
-        ...styles.carouselCard,
-        transform: isCenter 
-          ? 'scale(1.18)' 
-          : isOuter 
-          ? 'scale(0.90)'  
-          : 'scale(1.0)',
-        zIndex: isCenter ? 4 : isOuter ? 1 : 2,
-        opacity: isOuter ? 0.6 : isCenter ? 1 : 0.85,
-      }}
-    >
+              return (
+                <div 
+                  key={idx} 
+                  style={{
+                    ...styles.carouselCard,
+                    transform: isCenter 
+                      ? 'scale(1.18)' 
+                      : isOuter 
+                      ? 'scale(0.90)'  
+                      : 'scale(1.0)',
+                    zIndex: isCenter ? 4 : isOuter ? 1 : 2,
+                    opacity: isOuter ? 0.6 : isCenter ? 1 : 0.85,
+                  }}
+                >
                   {movie?.poster_url ? (
                     <img 
                       src={movie.poster_url} 
@@ -198,7 +201,6 @@ function HomePage({ user, onNavigateToAuth }) {
         </div>
       </div>
 
-      {/* Emfanizetai mono otan den einai syndedemenos o xristiss */}
       {!user && (
         <div style={styles.joinSection}>
           <button 
@@ -236,7 +238,7 @@ const styles = {
     display: 'block',        
     objectFit: 'contain'
   },
-  tagline: { //movies-popcorn-opinions
+  tagline: { 
     fontSize: '14.5px',
     fontWeight: '900', 
     letterSpacing: '5px',
@@ -315,7 +317,7 @@ const styles = {
     boxSizing: 'border-box',
     textAlign: 'left'
   },
-  feedTitle: { //recent reviews
+  feedTitle: { 
     fontSize: '14px',
     fontWeight: '800',
     letterSpacing: '2px',
