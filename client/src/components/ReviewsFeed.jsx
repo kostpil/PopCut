@@ -37,14 +37,27 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile
 
       let items = Array.isArray(data) ? data : [];
 
+      const savedUser = localStorage.getItem('user');
+      const userObj = savedUser ? JSON.parse(savedUser) : null;
+      const userEmail = userObj?.email || userObj?.username || null;
+
+      const localEdits = userEmail ? JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}') : {};
+
       items = items.map(item => {
         const id = item._id || item.id;
         const finalDate = item.watchedAt || item.createdAt;
 
-        return {
+        let updatedItem = {
           ...item,
           rawDate: finalDate
         };
+
+        if (localEdits[id]) {
+          updatedItem.rating = localEdits[id].rating !== undefined ? localEdits[id].rating : updatedItem.rating;
+          updatedItem.review = localEdits[id].review !== undefined ? localEdits[id].review : updatedItem.review;
+        }
+
+        return updatedItem;
       });
 
       items.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));

@@ -38,6 +38,7 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const userEmail = initialUser?.email || user?.email || 'default';
     
     if (!isOwnProfile && cleanProfileId) {
       if (profileUserObj) {
@@ -89,15 +90,7 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
             'Content-Type': 'application/json'
           }
         })
-          .then((res) => {
-            if (res.status === 401) {
-              throw new Error('Unauthorized - Please log in again.');
-            }
-            if (!res.ok) {
-              throw new Error('Failed to fetch profile');
-            }
-            return res.json();
-          })
+          .then((res) => res.ok ? res.json() : null)
           .then((data) => {
             if (data) {
               setUser(prev => ({ ...(prev || {}), ...data }));
@@ -115,10 +108,13 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
           .then((res) => res.ok ? res.json() : [])
           .then((data) => {
             if (Array.isArray(data)) {
+              const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+
               const formatted = data.map(item => {
                 const itemId = item._id || item.id;
                 const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
                 const finalDate = item.watchedAt || item.createdAt;
+                const savedEdit = localEdits[itemId] || {};
 
                 return {
                   id: itemId, 
@@ -126,8 +122,8 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
                   title: item.movie_id?.title || 'Unknown Movie',
                   poster_url: item.movie_id?.poster_url,
                   year: item.movie_id?.year,
-                  rating: item.rating,
-                  review: item.review,
+                  rating: savedEdit.rating !== undefined ? savedEdit.rating : item.rating,
+                  review: savedEdit.review !== undefined ? savedEdit.review : item.review,
                   rawDate: finalDate,
                   watchedAt: finalDate ? new Date(finalDate).toLocaleDateString() : ''
                 };
@@ -174,14 +170,19 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
   const handleStartEdit = (movie) => {
     if (!isOwnProfile) return;
     setEditingMovieId(movie.id);
-    setEditRating(String(movie.rating));
+    setEditRating(String(movie.rating || 5));
     setEditReview(movie.review || '');
   };
 
   const handleSaveEdit = async (id) => {
     if (!isOwnProfile) return;
     const token = localStorage.getItem('token');
+    const userEmail = user?.email || 'default';
     const newRatingNum = Number(editRating);
+
+    const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
+    localEdits[id] = { rating: newRatingNum, review: editReview };
+    localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
 
     try {
       if (token) {
