@@ -37,44 +37,15 @@ function ReviewsFeed({ onNavigateToSearch, onNavigateToAuth, onNavigateToProfile
 
       let items = Array.isArray(data) ? data : [];
 
-      const savedUser = localStorage.getItem('user');
-      const userObj = savedUser ? JSON.parse(savedUser) : null;
-      
-      const userEmail = userObj?.email || userObj?.username || null;
+      items = items.map(item => {
+        const id = item._id || item.id;
+        const finalDate = item.watchedAt || item.createdAt;
 
-      const localEdits = userEmail ? JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}') : {};
-      const localWatched = userEmail ? JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]') : [];
-      const deletedIds = userEmail ? JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]') : [];
-
-      items = items
-        .filter(item => {
-          const itemId = item._id || item.id;
-          return !deletedIds.includes(itemId);
-        })
-        .map(item => {
-          const id = item._id || item.id;
-          const movieId = item.movie_id?._id || item.movie_id?.id || item.movie_id;
-          const itemUserEmail = item.user_id?.email || item.user_id?.username;
-
-          let finalDate = item.watchedAt || item.createdAt;
-          if (userEmail && itemUserEmail === userEmail) {
-            const localMatch = localWatched.find(lw => String(lw.movieId || lw.movie_id?._id || lw.movie_id) === String(movieId));
-            if (localMatch && localMatch.watchedAt) {
-              finalDate = localMatch.watchedAt;
-            }
-          }
-
-          let updatedItem = {
-            ...item,
-            rawDate: finalDate
-          };
-
-          if (userEmail && localEdits[id]) {
-            updatedItem.rating = localEdits[id].rating !== undefined ? localEdits[id].rating : updatedItem.rating;
-            updatedItem.review = localEdits[id].review !== undefined ? localEdits[id].review : updatedItem.review;
-          }
-          return updatedItem;
-        });
+        return {
+          ...item,
+          rawDate: finalDate
+        };
+      });
 
       items.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
 

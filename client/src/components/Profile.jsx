@@ -38,7 +38,6 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    const userEmail = initialUser?.email || user?.email || 'default';
     
     if (!isOwnProfile && cleanProfileId) {
       if (profileUserObj) {
@@ -116,40 +115,25 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
           .then((res) => res.ok ? res.json() : [])
           .then((data) => {
             if (Array.isArray(data)) {
-              const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
-              const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
-              const deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
-              const permDeleted = JSON.parse(localStorage.getItem(`permDeletedMovies_${userEmail}`) || '[]');
+              const formatted = data.map(item => {
+                const itemId = item._id || item.id;
+                const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
+                const finalDate = item.watchedAt || item.createdAt;
 
-              const formatted = data
-                .filter(item => {
-                  const itemId = item._id || item.id;
-                  const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
-                  return !deletedIds.includes(itemId) && !deletedIds.includes(movieIdStr) && !permDeleted.includes(movieIdStr);
-                })
-                .map(item => {
-                  const itemId = item._id || item.id;
-                  const movieIdStr = typeof item.movie_id === 'object' ? (item.movie_id?._id || item.movie_id?.id) : item.movie_id;
-                  const savedEdit = localEdits[itemId] || {};
-                  
-                  const localMatch = localWatched.find(lw => String(lw.movieId || lw.movie_id?._id || lw.movie_id) === String(movieIdStr));
-                  const finalDate = localMatch?.watchedAt || item.watchedAt || item.createdAt;
-
-                  return {
-                    id: itemId, 
-                    movieId: movieIdStr,
-                    title: item.movie_id?.title || 'Unknown Movie',
-                    poster_url: item.movie_id?.poster_url,
-                    year: item.movie_id?.year,
-                    rating: savedEdit.rating !== undefined ? savedEdit.rating : item.rating,
-                    review: savedEdit.review !== undefined ? savedEdit.review : item.review,
-                    rawDate: finalDate,
-                    watchedAt: finalDate ? new Date(finalDate).toLocaleDateString() : ''
-                  };
-                });
+                return {
+                  id: itemId, 
+                  movieId: movieIdStr,
+                  title: item.movie_id?.title || 'Unknown Movie',
+                  poster_url: item.movie_id?.poster_url,
+                  year: item.movie_id?.year,
+                  rating: item.rating,
+                  review: item.review,
+                  rawDate: finalDate,
+                  watchedAt: finalDate ? new Date(finalDate).toLocaleDateString() : ''
+                };
+              });
 
               formatted.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
-
               setWatchedMovies(formatted);
             }
           })
@@ -163,13 +147,14 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
       .catch((err) => console.error("Error fetching catalog movies:", err));
   }, [cleanProfileId, isOwnProfile]);
 
- const handleDeleteMovie = async (movieItem) => {
+  const handleDeleteMovie = async (movieItem) => {
     if (!isOwnProfile) return;
     const targetId = movieItem._id || movieItem.id;
-    const movieIdStr = movieItem.movieId || (typeof movieItem.movie_id === 'object' ? movieItem.movie_id?._id || movieItem.movie_id?.id : movieItem.movie_id);
     const token = localStorage.getItem('token');
-    const userEmail = user?.email || 'default';
     
+    const updated = watchedMovies.filter((m) => (m._id || m.id) !== targetId);
+    setWatchedMovies(updated);
+
     try {
       if (token && targetId) {
         await fetch(`${API_BASE_URL}/api/watched/${targetId}`, {
@@ -180,29 +165,8 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
         });
       }
     } catch (err) {
-      console.error("Server delete failed, handling locally:", err);
+      console.error("Server delete failed:", err);
     }
-
-    const updated = watchedMovies.filter((m) => (m._id || m.id) !== targetId);
-    setWatchedMovies(updated);
-
-    const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
-    delete localEdits[targetId];
-    localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
-
-    let deletedIds = JSON.parse(localStorage.getItem(`watchedDeletes_${userEmail}`) || '[]');
-    if (targetId && !deletedIds.includes(targetId)) deletedIds.push(targetId);
-    localStorage.setItem(`watchedDeletes_${userEmail}`, JSON.stringify(deletedIds));
-
-    let permDeleted = JSON.parse(localStorage.getItem(`permDeletedMovies_${userEmail}`) || '[]');
-    if (movieIdStr && !permDeleted.includes(movieIdStr)) {
-      permDeleted.push(movieIdStr);
-      localStorage.setItem(`permDeletedMovies_${userEmail}`, JSON.stringify(permDeleted));
-    }
-
-    const localWatched = JSON.parse(localStorage.getItem(`watched_${userEmail}`) || '[]');
-    const cleanedWatched = localWatched.filter(m => (m._id || m.id) !== targetId);
-    localStorage.setItem(`watched_${userEmail}`, JSON.stringify(cleanedWatched));
 
     window.dispatchEvent(new Event('watched_updated'));
   };
@@ -217,7 +181,6 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
   const handleSaveEdit = async (id) => {
     if (!isOwnProfile) return;
     const token = localStorage.getItem('token');
-    const userEmail = user?.email || 'default';
     const newRatingNum = Number(editRating);
 
     try {
@@ -235,12 +198,8 @@ function Profile({ user: initialUser, onLogout, profileUserId }) {
         });
       }
     } catch (err) {
-      console.error("Server update failed, falling back to local storage:", err);
+      console.error("Server update failed:", err);
     }
-
-    const localEdits = JSON.parse(localStorage.getItem(`watchedEdits_${userEmail}`) || '{}');
-    localEdits[id] = { rating: newRatingNum, review: editReview };
-    localStorage.setItem(`watchedEdits_${userEmail}`, JSON.stringify(localEdits));
 
     const updated = watchedMovies.map((m) => {
       if (m.id === id) {
