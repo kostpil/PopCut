@@ -8,5 +8,6 @@ router.get('/watched', authMiddleware, watchedController.getUserWatchedMovies);
 router.get('/feed', watchedController.getAllWatchedMovies);
 router.get('/watched/:id', watchedController.getWatchedMovieById);
 router.get('/watched/user/:userId', watchedController.getUserWatchedMovies);
+router.delete('/watched/:id', authMiddleware, watchedController.deleteWatchedMovie);
 
 module.exports = router;
