@@ -30,6 +30,11 @@ function App() {
       setUser(JSON.parse(savedUser));
     }
 
+    if (window.location.pathname !== '/' && window.location.pathname !== '') {
+      window.history.replaceState({ tab: 'home' }, '', '/');
+      setActiveTab('home');
+    }
+
     const handlePopState = () => {
       const currentTab = getTabFromPath();
       setActiveTab(currentTab);
