@@ -11,21 +11,49 @@ import logo from './assets/popcut.png';
 function App() {
   const [user, setUser] = useState(null);
   const [isLogin, setIsLogin] = useState(true);
-  const [activeTab, setActiveTab] = useState('home');
+  
+  const getTabFromPath = () => {
+    const path = window.location.pathname.replace('/', '').toLowerCase();
+    if (['home', 'search', 'reviews', 'profile', 'login', 'register'].includes(path)) {
+      return path;
+    }
+    return 'home';
+  };
+
+  const [activeTab, setActiveTab] = useState(getTabFromPath);
   const [viewingUserId, setViewingUserId] = useState(null); 
+  const [selectedMovieFromHome, setSelectedMovieFromHome] = useState(null);
   
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
+
+    const handlePopState = () => {
+      const currentTab = getTabFromPath();
+      setActiveTab(currentTab);
+      if (currentTab === 'login') setIsLogin(true);
+      if (currentTab === 'register') setIsLogin(false);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  const updateUrlAndState = (tab) => {
+    const targetPath = tab === 'home' ? '/' : `/${tab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({ tab }, '', targetPath);
+    }
+    setActiveTab(tab);
+  };
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
     localStorage.setItem('user', JSON.stringify(userData));
     setViewingUserId(null);
-    setActiveTab('profile');
+    updateUrlAndState('profile');
   };
 
   const handleLogout = () => {
@@ -34,14 +62,15 @@ function App() {
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setIsLogin(true);
-    setActiveTab('login');
+    updateUrlAndState('login');
   };
 
   const handleNavigate = (tab) => {
-    
     setViewingUserId(null); 
-    
-    setActiveTab(tab);
+    if (tab !== 'search') {
+      setSelectedMovieFromHome(null);
+    }
+    updateUrlAndState(tab);
     if (tab === 'login') setIsLogin(true);
     if (tab === 'register') setIsLogin(false);
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -49,14 +78,20 @@ function App() {
 
   const handleNavigateToAuth = (type) => {
     setViewingUserId(null);
-    setActiveTab(type);
+    updateUrlAndState(type);
     setIsLogin(type === 'login');
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   const handleNavigateToProfile = (userId) => {
     setViewingUserId(userId);
-    setActiveTab('profile');
+    updateUrlAndState('profile');
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
+  const handleSelectMovieFromHome = (movie) => {
+    setSelectedMovieFromHome(movie);
+    updateUrlAndState('search');
     window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
@@ -86,6 +121,7 @@ function App() {
           <MovieSearchModal 
             onAddWatchedMovie={handleAddWatchedMovie} 
             onNavigateToAuth={handleNavigateToAuth} 
+            initialSelectedMovie={selectedMovieFromHome}
           />
         ) : activeTab === 'reviews' ? (
           <ReviewsFeed 
@@ -94,7 +130,11 @@ function App() {
             onNavigateToProfile={handleNavigateToProfile}
           />
         ) : activeTab === 'home' ? (
-          <HomePage user={user} onNavigateToAuth={handleNavigateToAuth} /> 
+          <HomePage 
+            user={user} 
+            onNavigateToAuth={handleNavigateToAuth} 
+            onSelectMovie={handleSelectMovieFromHome}
+          /> 
         ) : activeTab === 'profile' ? (
           <Profile 
             user={user} 

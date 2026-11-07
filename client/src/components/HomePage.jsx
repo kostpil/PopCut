@@ -5,7 +5,7 @@ const API_BASE_URL = window.location.hostname === 'localhost'
   ? 'http://localhost:3000'
   : 'https://moviebook-2-production.up.railway.app';
 
-function HomePage({ user, onNavigateToAuth }) {
+function HomePage({ user, onNavigateToAuth, onSelectMovie }) {
   const [movies, setMovies] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [latestReviews, setLatestReviews] = useState([]);
@@ -136,6 +136,9 @@ function HomePage({ user, onNavigateToAuth }) {
               return (
                 <div 
                   key={idx} 
+                  onClick={() => {
+                    if (onSelectMovie) onSelectMovie(movie);
+                  }}
                   style={{
                     ...styles.carouselCard,
                     transform: isCenter 
@@ -145,6 +148,7 @@ function HomePage({ user, onNavigateToAuth }) {
                       : 'scale(1.0)',
                     zIndex: isCenter ? 4 : isOuter ? 1 : 2,
                     opacity: isOuter ? 0.6 : isCenter ? 1 : 0.85,
+                    cursor: 'pointer'
                   }}
                 >
                   {movie?.poster_url ? (
@@ -334,7 +338,7 @@ const styles = {
     boxSizing: 'border-box'
   },
   reviewCard: {
-    backgroundColor: '#FFFDF9',             
+    backgroundColor: '#FFFDF9',            
     border: '1px solid #D8C0A8',
     borderRadius: '12px',
     padding: '16px',
@@ -378,7 +382,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'center'
   },
-  joinBtn: {
+  joinFn: {
     padding: '14px 32px',
     borderRadius: '12px',
     border: 'none',
