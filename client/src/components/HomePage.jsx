@@ -382,7 +382,7 @@ const styles = {
     display: 'flex',
     justifyContent: 'center'
   },
-  joinFn: {
+  joinBtn: {
     padding: '14px 32px',
     borderRadius: '12px',
     border: 'none',
